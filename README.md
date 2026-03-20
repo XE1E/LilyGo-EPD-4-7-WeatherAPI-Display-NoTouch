@@ -2,8 +2,6 @@
 
 Weather display for LilyGo T5 4.7" e-paper display (non-touch version).
 
-![Preview](preview.png)
-
 ## Features
 
 - **Current weather** - Temperature, humidity, pressure, wind, UV Index
