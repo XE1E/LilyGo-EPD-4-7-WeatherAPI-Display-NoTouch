@@ -32,14 +32,16 @@ const char* TXT_HUMIDITY_PERCENT_ARR[] = { "Humedad (%)", "Humidity (%)", "Humid
 #define TXT_HUMIDITY_PERCENT String(TXT_HUMIDITY_PERCENT_ARR[currentLang])
 
 // ============== PRESSURE ==============
-const char* TXT_PRESSURE_HPA_ARR[] = { "Presion (hPa)", "Pressure (hPa)", "Pression (hPa)" };
-const char* TXT_PRESSURE_IN_ARR[] = { "Presion (in)", "Pressure (in)", "Pression (in)" };
+const char* TXT_PRESSURE_HPA_ARR[] = { "Presion (mb)", "Pressure (hPa)", "Pression (hPa)" };
+const char* TXT_PRESSURE_IN_ARR[] = { "Presion (mb)", "Pressure (hPa)", "Pression (hPa)" };
+const char* TXT_PRESSURE_UNIT_ARR[] = { "mb", "hPa", "hPa" };
 const char* TXT_PRESSURE_STEADY_ARR[] = { "Estable", "Steady", "Stable" };
 const char* TXT_PRESSURE_RISING_ARR[] = { "Subiendo", "Rising", "En hausse" };
 const char* TXT_PRESSURE_FALLING_ARR[] = { "Bajando", "Falling", "En baisse" };
 
 #define TXT_PRESSURE_HPA String(TXT_PRESSURE_HPA_ARR[currentLang])
 #define TXT_PRESSURE_IN String(TXT_PRESSURE_IN_ARR[currentLang])
+#define TXT_PRESSURE_UNIT String(TXT_PRESSURE_UNIT_ARR[currentLang])
 #define TXT_PRESSURE_STEADY String(TXT_PRESSURE_STEADY_ARR[currentLang])
 #define TXT_PRESSURE_RISING String(TXT_PRESSURE_RISING_ARR[currentLang])
 #define TXT_PRESSURE_FALLING String(TXT_PRESSURE_FALLING_ARR[currentLang])
@@ -49,12 +51,16 @@ const char* TXT_RAINFALL_MM_ARR[] = { "Lluvia (mm)", "Rainfall (mm)", "Pluie (mm
 const char* TXT_RAINFALL_IN_ARR[] = { "Lluvia (in)", "Rainfall (in)", "Pluie (in)" };
 const char* TXT_SNOWFALL_MM_ARR[] = { "Nevada (mm)", "Snowfall (mm)", "Neige (mm)" };
 const char* TXT_SNOWFALL_IN_ARR[] = { "Nevada (in)", "Snowfall (in)", "Neige (in)" };
+const char* TXT_PRECIPITATION_MM_ARR[] = { "Precip (mm)", "Precip (mm)", "Precip (mm)" };
+const char* TXT_PRECIPITATION_IN_ARR[] = { "Precip (in)", "Precip (in)", "Precip (in)" };
 const char* TXT_PRECIPITATION_SOON_ARR[] = { "Prec.", "Prec.", "Prec." };
 
 #define TXT_RAINFALL_MM String(TXT_RAINFALL_MM_ARR[currentLang])
 #define TXT_RAINFALL_IN String(TXT_RAINFALL_IN_ARR[currentLang])
 #define TXT_SNOWFALL_MM String(TXT_SNOWFALL_MM_ARR[currentLang])
 #define TXT_SNOWFALL_IN String(TXT_SNOWFALL_IN_ARR[currentLang])
+#define TXT_PRECIPITATION_MM String(TXT_PRECIPITATION_MM_ARR[currentLang])
+#define TXT_PRECIPITATION_IN String(TXT_PRECIPITATION_IN_ARR[currentLang])
 #define TXT_PRECIPITATION_SOON String(TXT_PRECIPITATION_SOON_ARR[currentLang])
 
 // ============== SUN ==============

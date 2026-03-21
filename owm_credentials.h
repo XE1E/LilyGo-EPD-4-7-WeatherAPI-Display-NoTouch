@@ -17,30 +17,28 @@ struct WiFiCredentials {
 };
 
 const WiFiCredentials wifiNetworks[] = {
-  {"YourWiFi_SSID", "YourWiFi_Password"},
+  {"TP-LINKv2", "rocio123"},
   // Add more networks below:
-  // {"SecondNetwork", "password2"},
-  // {"ThirdNetwork", "password3"},
+  {"Totalplay-2.4G-3a80", "uYAMN6wLpkSwe4Cj"},
+  {"STARLINK-6G", "quique12"},
 };
 
 const int wifiNetworkCount = sizeof(wifiNetworks) / sizeof(wifiNetworks[0]);
 
-// Get API key by signing up for a free developer account at https://openweathermap.org/
-String apikey       = "YOUR_API_KEY_HERE";                     // See: https://openweathermap.org/
-const char server[] = "api.openweathermap.org";
+// WeatherAPI.com - Get free API key at https://www.weatherapi.com/
+String apikey       = "222dd797d9d14c8993f165243260703";
+const char server[] = "api.weatherapi.com";
 
 //Set your location
-String City             = "Your City";                         // Your home city name
-String Latitude         = "0.0000";                            // Latitude of your location in decimal degrees
-String Longitude        = "0.0000";                            // Longitude of your location in decimal degrees
+String City             = "Ciudad de Mexico";
+String Latitude         = "19.3803";
+String Longitude        = "-99.1746";
 
-String Language         = "EN";                                // NOTE: Only the weather description is translated by OWM
-                                                               // Examples: Arabic (AR) Czech (CZ) English (EN) Spanish (ES) French (FR)
-                                                               // German (DE) Italian (IT) Portuguese (PT) Russian (RU) Japanese (JA)
+String Language         = "es";                                // WeatherAPI language codes: es, en, fr, de, etc.
 String Hemisphere       = "north";                             // or "south"
 String Units            = "M";                                 // Use 'M' for Metric or I for Imperial
 
-const char* Timezone    = "UTC0";                              // Choose your time zone from: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
-const char* ntpServer   = "pool.ntp.org";                      // Choose a time server close to you, or use pool.ntp.org
-int  gmtOffset_sec      = 0;                                   // UK normal time is GMT, so GMT Offset is 0, for US (-5Hrs) is typically -18000
-int  daylightOffset_sec = 0;                                   // In the UK DST is +1hr or 3600-secs, other countries may use different values
+const char* Timezone    = "CST6";
+const char* ntpServer   = "time.cloudflare.com";
+int  gmtOffset_sec      = -21600;                              // -6 hours for Mexico City
+int  daylightOffset_sec = 0;

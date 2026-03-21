@@ -1,133 +1,140 @@
-# LilyGo EPD 4.7" Weather Display - NoTouch
+# LilyGo EPD 4.7" WeatherAPI Display (NoTouch)
 
-Weather station for LilyGo T5 4.7" e-paper display (non-touch version).
+ESP32-S3 weather station using the LilyGo T5 4.7" e-paper display. Fetches weather data from **WeatherAPI.com** and displays current conditions plus 3-day forecast.
 
 ## Features
 
-- **Current weather** - Temperature, humidity, pressure, wind, UV Index, Air Quality
-- **3-day forecast** - Weather conditions for upcoming days
-- **Moon phase** - Current lunar phase with icon
-- **Sunrise/sunset** - Daily solar times
-- **Web configuration** - Configure via WiFi AP, no recompilation needed
-- **Multi-language** - Spanish, English, French (selectable in config)
-- **Multi-WiFi** - Connects to strongest available network from up to 3 configured
-- **Deep sleep** - Battery-friendly operation with configurable update interval
-- **No touch required** - Works with non-touch LilyGo T5 4.7" S3
+- **Current Weather** - Temperature, humidity, pressure, wind speed/direction, UV index, air quality (AQI)
+- **3-Day Forecast** - Hourly temperatures with weather icons
+- **Astronomy Data** - Moon phase, sunrise/sunset times (real data from WeatherAPI)
+- **Trend Graphs** - Temperature, pressure, humidity, precipitation over 3 days
+- **Web Configuration** - Easy setup via captive portal (no code changes needed)
+- **Multi-Language** - Spanish, English, French
+- **Multi-WiFi** - Connects to strongest available network
+- **Deep Sleep** - Battery efficient, configurable update interval
+- **No Touch Required** - Single-screen display, no navigation needed
 
 ## Hardware
 
-**Required:** LilyGo T5 4.7" S3 (ESP32-S3, 960x540 e-paper)
-
-The display does NOT require touch capability - shows weather and enters deep sleep.
+- **LilyGo T5 4.7" E-Paper (ESP32-S3)** - [Product Link](http://www.lilygo.cc/products/t5-4-7-inch-e-paper-v2-3)
+- Display: 960x540 pixels, 16 grayscale levels
+- This is the **non-touch** version
 
 ## Quick Start
 
-### 1. Upload Firmware
+### Arduino IDE Settings
 
-**Arduino IDE Settings:**
 | Setting | Value |
 |---------|-------|
 | Board | ESP32S3 Dev Module |
 | USB CDC On Boot | Enable |
 | Flash Size | 16MB (128Mb) |
-| Partition Scheme | 16M Flash (3M APP/9.9MB FATFS) |
+| Partition Scheme | 16M Flash (3MB APP/9.9MB FATFS) |
 | PSRAM | OPI PSRAM |
 | Upload Mode | UART0/Hardware CDC |
 
-**Required Libraries:**
-- Board Manager: esp32 by Espressif Systems 2.0.17
-- EPD47-master: https://github.com/DFRobotdl/EPD47/archive/refs/heads/master.zip
-- ArduinoJson: by Benoit Blanchon 6.19.0
+### Required Libraries
 
-### 2. First Boot Configuration
+| Library | Version | Source |
+|---------|---------|--------|
+| esp32 (Board Manager) | 2.0.17 | Espressif Systems |
+| EPD47-master | Latest | [Download ZIP](https://github.com/DFRobotdl/EPD47/archive/refs/heads/master.zip) |
+| ArduinoJson | 6.19.0 | Benoit Blanchon |
 
-On first power-up (or when no WiFi available), the device enters configuration mode:
+**Important:** Only install EPD47-master and ArduinoJson in the libraries folder to avoid conflicts.
 
-1. Connect to WiFi network: `WeatherStation-Setup`
-2. Password: `weather123`
-3. Open browser: `http://192.168.4.1`
-4. Enter your settings (API key, location, etc.)
-5. Click Save - device restarts and displays weather
+### First Boot Configuration
 
-### 3. Normal Operation
+1. Upload the sketch to your device
+2. Device creates WiFi hotspot: **WeatherStation-Setup** (password: `weather123`)
+3. Connect to hotspot and open `http://192.168.4.1`
+4. Configure WiFi credentials, WeatherAPI key, and location
+5. Save and device will restart
 
-After configuration, the device:
-1. Connects to WiFi
-2. Fetches weather from OpenWeatherMap
-3. Displays weather on screen
-4. Enters deep sleep (default: 1 hour)
-5. Wakes up and repeats
+### Get Your API Key
+
+1. Go to [weatherapi.com](https://www.weatherapi.com/)
+2. Sign up for a free account
+3. Copy your API key from the dashboard
+4. Enter it in the web configuration
+
+### Normal Operation
+
+1. Wakes from deep sleep
+2. Connects to strongest configured WiFi network
+3. Fetches weather from WeatherAPI.com (current + 3-day forecast + AQI)
+4. Updates e-paper display
+5. Returns to deep sleep
 
 ## Configuration Options
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| WiFi (up to 3) | Network SSID and password | MyWiFi / password123 |
-| API Key | OpenWeatherMap API key | abc123... |
-| City | City name for display | Mexico City |
+| Option | Description | Example |
+|--------|-------------|---------|
+| WiFi SSID/Password | Up to 3 networks | MyNetwork / mypassword |
+| API Key | WeatherAPI.com API key | abc123def456... |
+| City | Location name (display only) | Mexico City |
 | Latitude | Location latitude | 19.4326 |
 | Longitude | Location longitude | -99.1332 |
-| Timezone | POSIX timezone string | CST6CDT,M3.2.0,M11.1.0 |
-| Update interval | Minutes between updates | 60 |
-| Language | Interface language | es / en / fr |
-| Units | Metric or Imperial | M / I |
+| Timezone | POSIX timezone string | CST6CDT |
+| Update Interval | Minutes between updates | 60 |
+| Language | ES, EN, or FR | ES |
+| Units | M (Metric) or I (Imperial) | M |
 
 ## Troubleshooting
 
-### Upload fails
-1. Press and hold BOOT button
-2. While holding BOOT, press RST
-3. Release RST, then release BOOT
-4. Upload should now work
+| Problem | Solution |
+|---------|----------|
+| Upload fails | Hold BOOT button, press RST, release RST, release BOOT, then upload |
+| No WiFi connection | Check credentials, ensure 2.4GHz network, move closer to router |
+| No weather data | Verify API key at weatherapi.com, check internet connection |
+| Display not updating | Check deep sleep interval, verify power supply |
+| "NoMemory" error | Normal for very large responses, alerts are disabled to save memory |
 
-### Can't connect to configuration WiFi
-- Make sure no other device is connected to `WeatherStation-Setup`
-- Try moving closer to the device
-- Press RST to restart and try again
-
-### No weather data
-- Check your OpenWeatherMap API key is valid
-- Verify latitude/longitude are correct
-- Check WiFi credentials
-
-## Files
+## Project Files
 
 | File | Description |
 |------|-------------|
-| `LilyGo-EPD-4-7-OWM-Weather-Display-NoTouch.ino` | Main sketch |
-| `wifi_manager.h` | AP mode and web server |
-| `owm_credentials.h` | Default configuration |
+| `LilyGo-EPD-4-7-WeatherAPI-Display.ino` | Main sketch |
+| `owm_credentials.h` | Default WiFi/API configuration |
+| `wifi_manager.h` | Web portal and AP mode |
+| `forecast_record.h` | Weather data structures |
 | `lang.h` | Multi-language strings |
-| `forecast_record.h` | Weather data structure |
-| `opensans*.h` | Font files |
 
 ## Technical Details
 
-- **Display:** 960x540 pixels, 4-bit grayscale
-- **MCU:** ESP32-S3 with PSRAM
-- **Power:** Deep sleep between updates (~10uA)
-- **Storage:** Configuration saved in ESP32 NVS (persists across power cycles)
-- **Wake source:** Timer
+| Spec | Value |
+|------|-------|
+| Display | 960x540 pixels, 16 grayscale |
+| MCU | ESP32-S3 with PSRAM |
+| Power | ~15mA active, ~10uA deep sleep |
+| API Calls | 1 call per update (includes current + forecast + AQI) |
+| Max Response | ~50KB JSON (64KB buffer) |
+
+## WeatherAPI vs OpenWeatherMap
+
+This project uses **WeatherAPI.com** instead of OpenWeatherMap:
+
+| Feature | WeatherAPI | OpenWeatherMap |
+|---------|------------|----------------|
+| API Calls | 1 (all data) | 3+ (current, forecast, AQI) |
+| Moon Phase | Real data | Calculated |
+| Sunrise/Sunset | String format | Unix timestamp |
+| Free Tier | 1M calls/month | 1K calls/day |
+| Alerts | Yes (disabled for memory) | Separate API |
 
 ## Documentation
 
-See detailed manuals in three languages:
-- [MANUAL_ES.md](MANUAL_ES.md) - Español
-- [MANUAL_EN.md](MANUAL_EN.md) - English
-- [MANUAL_FR.md](MANUAL_FR.md) - Français
+- [Manual Espanol](MANUAL_ES.md)
+- [English Manual](MANUAL_EN.md)
+- [Manuel Francais](MANUAL_FR.md)
 
 ## License
 
-MIT License - See LICENSE file
+MIT License - See [Licence.txt](Licence.txt)
 
 ## Credits
 
-- Original code by David Bird 2021
-- Modified by Stefan Maetschke 2025
-- NoTouch version by XE1E 2026
-- EPD47 library by Vroland
-- Weather data from OpenWeatherMap
-
----
-
-73 de XE1E
+- Original project by David Bird
+- ESP32 port by LilyGo
+- WeatherAPI adaptation by XE1E
+- Weather data from [WeatherAPI.com](https://www.weatherapi.com/)

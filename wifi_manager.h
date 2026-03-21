@@ -299,11 +299,11 @@ const char CONFIG_PAGE[] PROGMEM = R"rawliteral(
       <!-- Weather Tab -->
       <div id="weather" class="panel">
         <div class="card">
-          <div class="card-title">OpenWeatherMap API</div>
+          <div class="card-title">WeatherAPI.com</div>
           <div class="form-group">
             <label>API Key</label>
             <input type="text" name="apikey" value="%APIKEY%" placeholder="Tu API key" maxlength="64">
-            <div class="hint">Obten tu key gratis en openweathermap.org</div>
+            <div class="hint">Obten tu key gratis en weatherapi.com</div>
           </div>
           <div class="form-group">
             <label>Dias de Pronostico</label>
@@ -507,11 +507,11 @@ const char REBOOT_PAGE[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-// Load configuration from preferences (uses defaults from owm_credentials.h if not saved)
+// Load configuration from preferences (uses defaults from credentials.h if not saved)
 void loadConfig() {
   preferences.begin("weather", true);  // Read-only
 
-  // Load saved values, use defaults from owm_credentials.h if empty
+  // Load saved values, use defaults from credentials.h if empty
   String savedSsid1 = preferences.getString("ssid1", "");
   if (savedSsid1.length() > 0) {
     strlcpy(config.wifi_ssid, savedSsid1.c_str(), sizeof(config.wifi_ssid));

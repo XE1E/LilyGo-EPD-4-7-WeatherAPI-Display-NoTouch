@@ -1,4 +1,4 @@
-# Manuel Station Meteo LilyGo EPD 4.7" - Version NoTouch
+# Manuel Station Meteo LilyGo EPD 4.7" - Version WeatherAPI
 
 ## Table des Matieres
 
@@ -8,7 +8,7 @@
 4. [Installation et Compilation](#4-installation-et-compilation)
 5. [Configuration](#5-configuration)
 6. [Utilisation de l'Appareil](#6-utilisation-de-lappareil)
-7. [API OpenWeatherMap](#7-api-openweathermap)
+7. [API WeatherAPI.com](#7-api-weatherapicom)
 8. [Gestion de l'Energie](#8-gestion-de-lenergie)
 9. [Resolution de Problemes](#9-resolution-de-problemes)
 10. [Annexe](#10-annexe)
@@ -19,28 +19,31 @@
 
 ### 1.1 Description Generale
 
-La Station Meteo LilyGo EPD 4.7" NoTouch est un appareil base sur ESP32-S3 qui affiche des informations meteorologiques en temps reel obtenues d'OpenWeatherMap. Elle utilise un ecran e-paper (encre electronique) de 4,7 pouces offrant une excellente visibilite dans toutes les conditions d'eclairage et une faible consommation d'energie.
+La Station Meteo LilyGo EPD 4.7" est un appareil base sur ESP32-S3 qui affiche des informations meteorologiques en temps reel obtenues de **WeatherAPI.com**. Elle utilise un ecran e-paper (encre electronique) de 4,7 pouces offrant une excellente visibilite dans toutes les conditions d'eclairage et une faible consommation d'energie.
 
 Cette version **NoTouch** est concue pour les ecrans sans capacite tactile, affichant uniquement l'ecran meteo principal et entrant automatiquement en mode veille profonde.
 
 ### 1.2 Caracteristiques Principales
 
 - **Ecran e-paper de 4,7 pouces** - 960x540 pixels, niveaux de gris
-- **Multi-WiFi** - Support de jusqu'a 3 reseaux WiFi configurables
-- **Mode AP (Point d'Acces)** - Portail captif pour configuration initiale
-- **Veille Profonde** - Faible consommation pour fonctionnement sur batterie
-- **Multi-langue** - Espagnol, Anglais et Francais
-- **Mises a jour automatiques** - Intervalle configurable (5-120 minutes)
-- **Indice UV et Qualite de l'Air** - Donnees supplementaires OpenWeatherMap
+- **Multi-WiFi** - Support jusqu'a 3 reseaux WiFi configurables
+- **Mode AP (Point d'Acces)** - Portail captif pour la configuration initiale
+- **Veille profonde** - Faible consommation pour le fonctionnement sur batterie
+- **Multi-langue** - Francais, Espagnol et Anglais
+- **Mise a jour automatique** - Intervalle configurable (5-120 minutes)
+- **Indice UV et Qualite de l'Air** - Inclus dans un seul appel WeatherAPI
+- **Phase Lunaire Reelle** - Donnees astronomiques directement de l'API
+- **Lever/Coucher du Soleil** - Horaires reels pour votre emplacement
 
-### 1.3 Differences avec la Version Tactile
+### 1.3 Avantages WeatherAPI vs OpenWeatherMap
 
-Cette version **n'inclut pas**:
-- Navigation tactile
-- Ecrans secondaires (previsions detaillees, graphiques, historique)
-- Stockage d'historique
-- Support carte SD
-- Configuration Bluetooth
+| Caracteristique | WeatherAPI | OpenWeatherMap |
+|-----------------|------------|----------------|
+| Appels API | 1 (tout inclus) | 3+ (separes) |
+| Phase Lunaire | Donnees reelles | Calculee |
+| Forfait Gratuit | 1M appels/mois | 1K appels/jour |
+| Qualite de l'Air | Incluse | API separee |
+| Alertes | Disponibles | API separee |
 
 ---
 
@@ -52,10 +55,10 @@ Cette version **n'inclut pas**:
 | Parametre | Specification |
 |-----------|---------------|
 | Puce | ESP32-S3 |
-| CPU | Dual-core Xtensa LX7 @ 240MHz |
+| CPU | Double coeur Xtensa LX7 @ 240MHz |
 | RAM | 512KB SRAM + 8MB PSRAM (OPI) |
 | Flash | 16MB |
-| WiFi | 802.11 b/g/n (2.4GHz) |
+| WiFi | 802.11 b/g/n (2,4GHz) |
 
 #### Ecran E-Paper
 | Parametre | Specification |
@@ -64,458 +67,364 @@ Cette version **n'inclut pas**:
 | Taille | 4,7 pouces diagonale |
 | Resolution | 960 x 540 pixels |
 | Couleurs | 16 niveaux de gris |
-| Technologie | ED047TC1 |
 | Temps de rafraichissement | ~0,5 secondes |
-| Angle de vision | ~180 degres |
 
 #### Alimentation
 | Parametre | Specification |
 |-----------|---------------|
-| Tension entree USB | 5V |
-| Tension batterie | 3,7V LiPo (3,2V-4,2V) |
+| Tension d'entree USB | 5V |
+| Tension batterie | 3,7V LiPo |
 | Consommation active | ~150mA |
-| Consommation veille | ~10uA |
-| Pin ADC batterie | GPIO 14 |
+| Consommation veille profonde | ~10uA |
 
-#### Boutons
-| Parametre | Specification |
-|-----------|---------------|
-| Bouton BOOT | GPIO 0 (mode bootloader) |
-| Bouton RST | Reset materiel |
+### 2.2 Logiciel
 
-### 2.2 Technologie E-Paper
-
-#### Fonctionnement
-
-L'ecran e-paper utilise des microspheres bicolores suspendues dans un fluide. Lorsqu'une tension est appliquee, les particules blanches ou noires se deplacent vers la surface, creant l'image. Sans tension, l'image reste indefiniment.
-
-#### Avantages
-1. **Visibilite** - Parfaite en plein soleil
-2. **Angle de vision** - Presque 180 degres
-3. **Consommation** - N'utilise de l'energie qu'au changement d'image
-4. **Confort visuel** - Pas de retroeclairage, ne fatigue pas les yeux
-
-#### Limitations
-1. **Vitesse** - Rafraichissement plus lent que LCD (~0,5s)
-2. **Ghosting** - Des images residuelles peuvent rester
-3. **Couleur** - Niveaux de gris uniquement
-4. **Temperature** - Fonctionnement optimal 0-50C
+| Composant | Version |
+|-----------|---------|
+| Arduino Core ESP32 | 2.0.17 |
+| ArduinoJson | 6.19.0 |
+| EPD47-master | Derniere |
 
 ---
 
 ## 3. Architecture du Systeme
 
-### 3.1 Diagramme de Flux
+### 3.1 Flux Principal
 
 ```
-+----------------+
-|    DEMARRAGE   |
-+----------------+
+Demarrage/Reveil
        |
        v
-+----------------+
-| InitialiseSystem|
-+----------------+
+  Initialiser Systeme
        |
        v
-+----------------+
-| loadConfig()    |
-+----------------+
+  Charger Configuration (NVS)
        |
        v
-+----------------+
-| FORCE_AP_MODE? |----Oui----> Mode AP
-+----------------+              |
-       |Non                     |
-       v                        |
-+----------------+              |
-| StartWiFi()    |              |
-+----------------+              |
-       |                        |
-  Connecte?                     |
-  /        \                    |
-Oui         Non-----------------+
-|                               |
-v                               v
-+----------------+       +----------------+
-| SetupTime()    |       | startAPMode()  |
-+----------------+       +----------------+
-       |                        |
-       v                        v
-+----------------+       +----------------+
-| obtainWeather  |       |    LOOP()      |
-| obtainUVIndex  |       | - handleAPMode |
-| obtainAirQuality|      | - Retry WiFi   |
-+----------------+       +----------------+
+  Scanner Reseaux WiFi
+       |
+       +---> Aucun reseau connu ---> Mode AP (Portail Web)
        |
        v
-+----------------+
-| DisplayWeather |
-+----------------+
+  Connecter au WiFi
        |
        v
-+----------------+
-| BeginSleep()   |
-| - deep_sleep   |
-+----------------+
+  Obtenir Donnees (WeatherAPI)
        |
-       v (timer)
-+----------------+
-|   DEMARRAGE    |
-+----------------+
+       v
+  Mettre a Jour l'Ecran
+       |
+       v
+  Veille Profonde (X minutes)
 ```
 
 ### 3.2 Structure des Fichiers
 
 ```
-LilyGo-EPD-4-7-OWM-Weather-Display-NoTouch/
+LilyGo-EPD-4-7-WeatherAPI-Display/
 |
-+-- LilyGo-EPD-4-7-OWM-Weather-Display-NoTouch.ino  # Sketch principal
++-- LilyGo-EPD-4-7-WeatherAPI-Display.ino  # Sketch principal
 |
 +-- owm_credentials.h     # Identifiants WiFi et API (valeurs par defaut)
++-- wifi_manager.h        # Portail web et mode AP
++-- forecast_record.h     # Structures de donnees meteo
++-- lang.h                # Chaines multi-langues
 |
-+-- wifi_manager.h        # Mode AP, portail web, stockage NVS
-|
-+-- forecast_record.h     # Structure de donnees meteo
-|
-+-- lang.h                # Systeme multi-langue (ES/EN/FR)
-|
-+-- opensans*.h           # Polices
-|
-+-- moon.h                # Image de la lune
-+-- sunrise.h             # Icone lever de soleil
-+-- sunset.h              # Icone coucher de soleil
++-- opensans*.h           # Polices (tailles 8-24)
++-- moon.h, sunrise.h, sunset.h  # Icones bitmap
 ```
 
-### 3.3 Stockage de Configuration (NVS)
+### 3.3 Donnees Meteorologiques
 
-La configuration est stockee dans le namespace "weather" des Preferences ESP32:
+WeatherAPI fournit toutes les donnees en un seul appel:
 
-| Cle | Type | Description |
-|-----|------|-------------|
-| ssid1, pass1 | String | Reseau WiFi principal |
-| ssid2, pass2 | String | Reseau WiFi secondaire |
-| ssid3, pass3 | String | Reseau WiFi tertiaire |
-| apikey | String | Cle API OpenWeatherMap |
-| city | String | Nom de la ville |
-| lat, lon | String | Coordonnees geographiques |
-| lang | String | Langue (ES, EN, FR) |
-| hemi | String | Hemisphere (north, south) |
-| units | String | Unites (M=metrique, I=imperial) |
-| tz | String | Fuseau horaire POSIX |
-| gmt | Int | Decalage GMT en secondes |
-| dst | Int | Decalage heure d'ete |
-| updint | Int | Intervalle mise a jour (min) |
+| Champ | Description | Unite |
+|-------|-------------|-------|
+| Temperature | Temperature actuelle | C / F |
+| Ressenti | Temperature ressentie | C / F |
+| Humidite | Humidite relative | % |
+| Pression | Pression atmospherique | mb / hPa |
+| Vent | Vitesse et direction | kph / mph |
+| Indice UV | Indice ultraviolet | 0-11+ |
+| IQA | Indice qualite de l'air | 1-6 |
+| Lever/Coucher | Horaires solaires | HH:MM AM/PM |
+| Phase Lunaire | Phase de la lune | Texte + % illumination |
+| Previsions | Previsions 3 jours | Par heure |
 
 ---
 
 ## 4. Installation et Compilation
 
-### 4.1 Logiciels Requis
+### 4.1 Prerequis
 
-#### Arduino IDE
-- Version 1.8.x ou 2.x
+1. **Arduino IDE** 1.8.x ou 2.x
+2. **Support Carte ESP32** version 2.0.17
+3. **Bibliotheques requises**
 
-#### Board Manager
-- **URL**: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-- **Paquet**: esp32 by Espressif Systems **version 2.0.17**
+### 4.2 Installation des Bibliotheques
 
-#### Bibliotheques Requises
-Installer uniquement ces deux bibliotheques:
+#### Gestionnaire de Cartes ESP32
+1. Ouvrir Arduino IDE
+2. Aller a Fichier > Preferences
+3. Dans "URLs de gestionnaire de cartes supplementaires":
+   ```
+   https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+   ```
+4. Aller a Outils > Carte > Gestionnaire de cartes
+5. Rechercher "esp32" et installer version **2.0.17**
 
-1. **EPD47-master**
-   - URL: https://github.com/DFRobotdl/EPD47/archive/refs/heads/master.zip
+#### EPD47-master
+1. Telecharger: https://github.com/DFRobotdl/EPD47/archive/refs/heads/master.zip
+2. Dans Arduino IDE: Croquis > Inclure bibliotheque > Ajouter bibliotheque .ZIP
+3. Selectionner le fichier telecharge
 
-2. **ArduinoJson**
-   - Auteur: Benoit Blanchon
-   - Version: 6.19.0
+#### ArduinoJson
+1. Outils > Gerer les bibliotheques
+2. Rechercher "ArduinoJson"
+3. Installer version **6.19.0** de Benoit Blanchon
 
-### 4.2 Configuration Arduino IDE
+### 4.3 Configuration Arduino IDE
 
-| Parametre | Valeur |
-|-----------|--------|
-| Board | ESP32S3 Dev Module |
+| Option | Valeur |
+|--------|--------|
+| Carte | ESP32S3 Dev Module |
 | USB CDC On Boot | Enable |
 | USB DFU On Boot | Disable |
 | Flash Size | 16MB (128Mb) |
 | Flash Mode | QIO 80MHz |
-| Partition Scheme | 16M Flash (3M APP/9.9MB FATFS) |
+| Partition Scheme | 16M Flash (3MB APP/9.9MB FATFS) |
 | PSRAM | OPI PSRAM |
 | Upload Mode | UART0/Hardware CDC |
 | USB Mode | Hardware CDC and JTAG |
 
-### 4.3 Processus de Compilation
+### 4.4 Televersement du Firmware
 
-1. Ouvrir le fichier `.ino` dans Arduino IDE
-2. Selectionner le port COM correct
-3. Cliquer sur "Verify" pour compiler
-4. Cliquer sur "Upload" pour telecharger
+1. Connecter l'appareil via USB
+2. Selectionner le bon port COM
+3. Compiler et televerser
 
-### 4.4 Mode Bootloader (si echec du telechargement)
-
-Si le telechargement echoue:
-1. Appuyer et maintenir le bouton **BOOT**
-2. En maintenant BOOT, appuyer sur **RST**
+**Si le televersement echoue:**
+1. Maintenir le bouton BOOT
+2. Sans relacher BOOT, appuyer sur RST
 3. Relacher RST
 4. Relacher BOOT
-5. Reessayer le telechargement
+5. Reessayer le televersement
 
 ---
 
 ## 5. Configuration
 
-### 5.1 Configuration Initiale (Mode AP)
+### 5.1 Portail Web (Mode AP)
 
-Au premier demarrage ou quand aucun WiFi n'est disponible:
+Lorsqu'aucun reseau WiFi n'est configure ou disponible, l'appareil cree un point d'acces:
 
-1. L'appareil cree le reseau: **WeatherStation-Setup**
-2. Se connecter avec mot de passe: **weather123**
-3. Ouvrir navigateur: **http://192.168.4.1**
-4. Completer le formulaire de configuration
-5. Sauvegarder - l'appareil redemarre
+- **SSID:** WeatherStation-Setup
+- **Mot de passe:** weather123
+- **URL:** http://192.168.4.1
 
-### 5.2 Parametres de Configuration
+### 5.2 Options de Configuration
 
-#### Reseaux WiFi
-- Jusqu'a 3 reseaux WiFi avec SSID et mot de passe
-- L'appareil se connecte automatiquement au signal le plus fort
+#### Onglet WiFi
+| Champ | Description |
+|-------|-------------|
+| SSID 1-3 | Nom du reseau WiFi |
+| Mot de passe 1-3 | Mot de passe du reseau |
 
-#### API OpenWeatherMap
-- Obtenir une cle API gratuite sur: https://openweathermap.org/
-- La cle gratuite permet ~1000 appels/jour
+#### Onglet Meteo
+| Champ | Description |
+|-------|-------------|
+| Cle API | Cle WeatherAPI.com |
+| Ville | Nom a afficher |
+| Latitude | Coordonnee (-90 a 90) |
+| Longitude | Coordonnee (-180 a 180) |
+| Fuseau horaire | Format POSIX (ex: CET-1CEST) |
 
-#### Localisation
-- **Ville**: Nom a afficher sur l'ecran
-- **Latitude/Longitude**: Coordonnees exactes pour donnees precises
+#### Onglet Systeme
+| Champ | Description |
+|-------|-------------|
+| Langue | ES, EN, FR |
+| Unites | M (Metrique), I (Imperial) |
+| Intervalle | Minutes entre mises a jour |
 
-#### Fuseau Horaire
-- Format POSIX, exemple: `CET-1CEST,M3.5.0,M10.5.0`
-- Le decalage GMT est calcule automatiquement
+### 5.3 Obtenir une Cle API WeatherAPI
 
-#### Options de Mise a Jour
-- **Intervalle**: 5 a 120 minutes entre les mises a jour
-- **Heure debut**: Heure de debut d'activite (0-23)
-- **Heure fin**: Heure de suspension nocturne (0-23)
-
-#### Langue
-- Espagnol, Anglais ou Francais
-
-#### Unites
-- Metrique (Celsius, m/s, hPa)
-- Imperial (Fahrenheit, mph, inHg)
+1. Aller sur [weatherapi.com](https://www.weatherapi.com/)
+2. Creer un compte gratuit
+3. Aller au Tableau de bord
+4. Copier la Cle API
+5. La coller dans la configuration web
 
 ---
 
 ## 6. Utilisation de l'Appareil
 
-### 6.1 Fonctionnement Normal
-
-1. L'appareil s'allume ou se reveille de la veille profonde
-2. Se connecte au reseau WiFi le plus fort disponible
-3. Synchronise l'heure via NTP
-4. Obtient les donnees meteo d'OpenWeatherMap
-5. Affiche les informations sur l'ecran
-6. Entre en veille profonde jusqu'a la prochaine mise a jour
-
-### 6.2 Ecran Principal
+### 6.1 Ecran Principal
 
 L'ecran affiche:
 
 ```
-+----------------------------------------------------------+
-|  Ville              Date et Heure          Batterie WiFi  |
-+----------------------------------------------------------+
-|                                                           |
-|    [Boussole Vent]      TEMPERATURE            [Icone]    |
-|                         Humidite%                         |
-|    Direction            Max|Min  Indice UV                |
-|    Vitesse                                                |
-|                         Description meteo                 |
-|    [Soleil/Lune]        Pression hPa                      |
-|    Lever                                                  |
-|    Coucher              Ressenti                          |
-|    Phase lunaire                                          |
-|                                                           |
-|    +----------+  +----------+  +----------+               |
-|    | Prevision|  | Prevision|  | Prevision|               |
-|    | Jour 1   |  | Jour 2   |  | Jour 3   |               |
-|    +----------+  +----------+  +----------+               |
-+----------------------------------------------------------+
++--------------------------------------------------+
+|  Ville, Region                      Date & Heure |
++--------------------------------------------------+
+|                                                  |
+|   [Icone]   Temperature    Humidite%             |
+|             Max/Min        Indice UV             |
+|                                                  |
+|   Rose des  Pression       Visibilite            |
+|   Vents     Tendance       Ressenti    IQA       |
+|                                                  |
+|   Lune      Lever du soleil                      |
+|   Phase     Coucher du soleil                    |
+|                                                  |
++--------------------------------------------------+
+|  [Previsions horaires - 7 periodes de 3h]        |
++--------------------------------------------------+
+|  [Graphiques: Temp | Pression | Humidite | Precip]|
++--------------------------------------------------+
 ```
 
-### 6.3 Indicateurs d'Etat
+### 6.2 Icones Meteo
 
-- **Batterie**: Niveau de charge de la batterie LiPo
-- **WiFi**: Intensite du signal en dB
+| Icone | Condition |
+|-------|-----------|
+| Soleil | Degage |
+| Soleil/Nuage | Partiellement nuageux |
+| Nuages | Nuageux |
+| Pluie | Pluie |
+| Orage | Orage |
+| Neige | Neige |
+| Brouillard | Brouillard/Brume |
+
+### 6.3 Indicateurs
+
+- **Rose des Vents:** Direction et vitesse actuelles du vent
+- **Phase Lunaire:** Icone et nom de la phase (donnees reelles WeatherAPI)
+- **IQA (Indice Qualite Air):** 1-Bon a 6-Dangereux
 
 ---
 
-## 7. API OpenWeatherMap
+## 7. API WeatherAPI.com
 
-### 7.1 Points de Terminaison Utilises
+### 7.1 Point d'Acces Utilise
 
-| Point de terminaison | Description |
-|----------------------|-------------|
-| /data/2.5/weather | Meteo actuelle |
-| /data/2.5/forecast | Previsions 5 jours |
-| /data/2.5/uvi | Indice UV |
-| /data/2.5/air_pollution | Qualite de l'air |
+```
+https://api.weatherapi.com/v1/forecast.json
+  ?key={CLE_API}
+  &q={LAT},{LON}
+  &days=3
+  &aqi=yes
+  &lang={LANGUE}
+```
 
-### 7.2 Donnees Recuperees
+### 7.2 Donnees Recues
 
-- Temperature actuelle, max et min
-- Temperature ressentie
-- Humidite relative
-- Pression atmospherique et tendance
-- Vitesse et direction du vent
-- Probabilite de precipitation
-- Couverture nuageuse
-- Visibilite
-- Lever et coucher du soleil
-- Indice UV
-- Indice de Qualite de l'Air (IQA)
+Un seul appel inclut:
+- **location** - Informations de localisation
+- **current** - Conditions actuelles + qualite de l'air
+- **forecast** - 3 jours avec donnees horaires
+- **astro** - Donnees astronomiques (soleil, lune)
 
-### 7.3 Limites de l'API Gratuite
+### 7.3 Limites du Forfait Gratuit
 
-- ~1000 appels par jour
-- Donnees mises a jour toutes les 10 minutes sur le serveur
-- Previsions jusqu'a 5 jours
+| Limite | Valeur |
+|--------|--------|
+| Appels/mois | 1 000 000 |
+| Jours de prevision | 3 |
+| Historique | Non inclus |
+| Alertes | Disponibles |
+
+### 7.4 Codes de Condition
+
+WeatherAPI utilise des codes numeriques (1000, 1003, etc.) qui sont mappes aux icones internes compatibles avec le systeme d'icones original.
 
 ---
 
 ## 8. Gestion de l'Energie
 
-### 8.1 Modes d'Energie
+### 8.1 Modes de Fonctionnement
 
-| Mode | Consommation | Description |
-|------|--------------|-------------|
-| Actif | ~150mA | Traitement, WiFi actif |
-| Veille Profonde | ~10uA | Seul RTC actif |
+| Mode | Consommation | Duree |
+|------|--------------|-------|
+| Actif | ~150mA | ~10-15 secondes |
+| Veille profonde | ~10uA | Configurable |
 
-### 8.2 Cycle d'Energie
+### 8.2 Autonomie Estimee
 
-1. **Reveil** - Timer ou reset manuel
-2. **Actif** - WiFi, API, affichage (~5-10 secondes)
-3. **Veille Profonde** - Jusqu'a prochaine mise a jour
+Avec batterie de 2000mAh:
+- Mise a jour toutes les 60 min: ~6 mois
+- Mise a jour toutes les 30 min: ~3 mois
+- Mise a jour toutes les 15 min: ~6 semaines
 
-### 8.3 Autonomie de la Batterie
+### 8.3 Indicateur de Batterie
 
-Avec batterie LiPo 2000mAh:
-- Intervalle 30 min: ~2-3 mois
-- Intervalle 60 min: ~4-6 mois
-
-### 8.4 Heures d'Activite
-
-Configurer les heures de debut et de fin pour suspendre les mises a jour pendant la nuit et economiser la batterie.
+Situe dans le coin superieur droit:
+- Vert: >75%
+- Jaune: 25-75%
+- Rouge: <25%
 
 ---
 
 ## 9. Resolution de Problemes
 
-### 9.1 Ne Se Connecte Pas au WiFi
+### 9.1 Problemes Courants
 
-**Symptomes**: Entre constamment en mode AP
+| Probleme | Solution |
+|----------|----------|
+| Le firmware ne se televerse pas | Utiliser mode bootloader (BOOT + RST) |
+| WiFi ne se connecte pas | Verifier 2,4GHz, se rapprocher du routeur |
+| Pas de donnees meteo | Verifier cle API sur weatherapi.com |
+| Erreur NoMemory | Normal, reessaie automatiquement |
+| L'ecran ne se met pas a jour | Verifier l'alimentation |
 
-**Solutions**:
-1. Verifier que le SSID et mot de passe sont corrects
-2. Verifier que le reseau est a portee
-3. Le reseau doit etre 2,4GHz (5GHz non supporte)
+### 9.2 Messages d'Erreur Serie
 
-### 9.2 Pas de Donnees Meteo
+| Message | Cause | Solution |
+|---------|-------|----------|
+| Connection failed 401/403 | Cle API invalide | Verifier la cle |
+| deserializeJson NoMemory | Tampon insuffisant | Utilise tampon 64KB |
+| WiFi connection failed | Aucun reseau disponible | Verifier identifiants |
 
-**Symptomes**: Ecran vide ou anciennes donnees
+### 9.3 Reinitialisation d'Usine
 
-**Solutions**:
-1. Verifier la cle API OpenWeatherMap
-2. Verifier les coordonnees (lat/lon)
-3. Verifier la connexion internet
-
-### 9.3 Ghosting sur l'Ecran
-
-**Symptomes**: Images residuelles visibles
-
-**Solutions**:
-1. Le ghosting est normal pour e-paper
-2. Se reduit a chaque mise a jour
-3. Appuyer sur RST pour forcer le rafraichissement
-
-### 9.4 Echec du Telechargement du Firmware
-
-**Symptomes**: Erreur de timeout ou connexion
-
-**Solutions**:
-1. Utiliser le mode bootloader (BOOT + RST)
-2. Verifier le cable USB (utiliser cable de donnees, pas charge seule)
-3. Essayer un autre port USB
-
-### 9.5 Heure Incorrecte
-
-**Symptomes**: L'heure affichee ne correspond pas
-
-**Solutions**:
-1. Verifier la configuration du fuseau horaire
-2. Le format doit etre POSIX valide
-3. Verifier les decalages GMT et DST
+Pour effacer toute la configuration:
+1. Ajouter dans setup():
+   ```cpp
+   Preferences prefs;
+   prefs.begin("weather", false);
+   prefs.clear();
+   prefs.end();
+   ```
+2. Televerser, executer une fois, supprimer le code
 
 ---
 
 ## 10. Annexe
 
-### 10.1 Codes d'Icones Meteo
+### 10.1 Fuseaux Horaires POSIX
 
-| Code | Description |
-|------|-------------|
-| 01d/01n | Ciel degage |
-| 02d/02n | Quelques nuages |
-| 03d/03n | Nuages epars |
-| 04d/04n | Tres nuageux |
-| 09d/09n | Pluie legere |
-| 10d/10n | Pluie |
-| 11d/11n | Orage |
-| 13d/13n | Neige |
-| 50d/50n | Brouillard |
+| Region | Code |
+|--------|------|
+| France | CET-1CEST |
+| Belgique | CET-1CEST |
+| Suisse | CET-1CEST |
+| Canada Quebec | EST5EDT |
+| Maroc | WET0 |
 
-### 10.2 Fuseaux Horaires POSIX
+### 10.2 Codes de Langue
 
-Exemples courants:
-- France: `CET-1CEST,M3.5.0,M10.5.0`
-- Belgique: `CET-1CEST,M3.5.0,M10.5.0`
-- Suisse: `CET-1CEST,M3.5.0,M10.5.0`
-- Quebec: `EST5EDT,M3.2.0,M11.1.0`
-- Maroc: `WET0`
+| Code | Langue |
+|------|--------|
+| FR | Francais |
+| ES | Espagnol |
+| EN | Anglais |
 
-### 10.3 Echelle de Qualite de l'Air (IQA)
+### 10.3 Credits
 
-| IQA | Description | Couleur |
-|-----|-------------|---------|
-| 1 | Bonne | Vert |
-| 2 | Acceptable | Jaune |
-| 3 | Moderee | Orange |
-| 4 | Mauvaise | Rouge |
-| 5 | Tres mauvaise | Violet |
-
-### 10.4 Echelle UV
-
-| UV | Description |
-|----|-------------|
-| 0-2 | Faible |
-| 3-5 | Modere |
-| 6-7 | Eleve |
-| 8-10 | Tres eleve |
-| 11+ | Extreme |
+- Projet original: David Bird
+- Port ESP32: LilyGo
+- Adaptation WeatherAPI: XE1E
+- Donnees meteorologiques: [WeatherAPI.com](https://www.weatherapi.com/)
 
 ---
 
-## Credits
-
-- Code original: David Bird 2021
-- Modifications: Stefan Maetschke 2025
-- Version NoTouch et ameliorations: XE1E 2026
-
-## Licence
-
-MIT License
-
----
-
-73 de XE1E
+*Manuel version 1.0 - WeatherAPI*

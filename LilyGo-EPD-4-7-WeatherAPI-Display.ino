@@ -1,6 +1,6 @@
-// ESP32 Weather Display and a LilyGo EPD 4.7" Display, obtains Open Weather Map data, decodes and then displays it.
-// This software, the ideas and concepts is Copyright (c) David Bird 2021. All rights to this software are reserved.
-// Mods by XE1E - NoTouch version (no secondary screens, no touch navigation)
+// ESP32 Weather Display and a LilyGo EPD 4.7" Display, obtains WeatherAPI.com data, decodes and then displays it.
+// Original software, ideas and concepts is Copyright (c) David Bird 2021. All rights to this software are reserved.
+// Mods by XE1E - WeatherAPI version (uses weatherapi.com instead of openweathermap.org)
 // #################################################################################################################
 
 // @note      Arduino Setting 
@@ -40,6 +40,7 @@
 #include <HTTPClient.h>         // In-built
 
 #include <WiFi.h>               // In-built
+#include <WiFiClientSecure.h>   // In-built - for HTTPS
 #include <time.h>               // In-built
 
 #include "owm_credentials.h"
@@ -54,7 +55,7 @@
 #define SCREEN_HEIGHT  EPD_HEIGHT
 
 //################  VERSION  ##################################################
-String version = "2.9-NoTouch / 4.7in";  // Programme version - NoTouch (single screen, no touch navigation)
+String version = "1.0-WeatherAPI / 4.7in";  // Programme version - WeatherAPI (uses weatherapi.com)
 //################ VARIABLES ##################################################
 
 enum alignment {LEFT, RIGHT, CENTER};
@@ -73,14 +74,11 @@ boolean LargeIcon   = true;
 boolean SmallIcon   = false;
 #define Small  8            // For icon drawing
 #define Large  20           // For icon drawing
-#define XLarge 25           // Extra large for secondary screen
-int iconScaleOverride = 0;  // 0 = use default, >0 = use this scale
 String  Time_str = "--:--:--";
 String  Date_str = "-- --- ----";
 int     wifi_signal, CurrentHour = 0, CurrentMin = 0, CurrentSec = 0, vref = 1100;
 
 // Unit conversion constants
-#define HPA_TO_INHG 0.02953
 #define MM_TO_INCHES 0.0393701
 
 //################ PROGRAM VARIABLES and OBJECTS ##########################################
@@ -93,7 +91,6 @@ float pressure_readings[max_readings]    = {0};
 float temperature_readings[max_readings] = {0};
 float humidity_readings[max_readings]    = {0};
 float rain_readings[max_readings]        = {0};
-float snow_readings[max_readings]        = {0};
 
 long SleepDuration   = 60; // Sleep time in minutes, aligned to the nearest minute boundary (default 1 hour)
 int  WakeupHour      = 8;  // Don't wakeup until after 07:00 to save battery power
@@ -312,19 +309,15 @@ void loop() {
       if (StartWiFi() == WL_CONNECTED && SetupTime() == true) {
         Serial.println("WiFi connected! Fetching weather data...");
         apRetryCount = 0;  // Reset retry counter on successful connection
-        bool RxWeather  = false;
-        bool RxForecast = false;
-        WiFiClient client;
+        // WeatherAPI: single call gets everything (current, forecast, AQI)
+        WiFiClientSecure client;
+        bool RxWeather = false;
         byte Attempts = 1;
-        while ((RxWeather == false || RxForecast == false) && Attempts <= 2) {
-          if (RxWeather  == false) RxWeather  = obtainWeatherData(client, "weather");
-          if (RxForecast == false) RxForecast = obtainWeatherData(client, "forecast");
+        while (RxWeather == false && Attempts <= 2) {
+          RxWeather = obtainWeatherData(client);
           Attempts++;
         }
-        // Fetch UV Index and Air Quality
-        obtainUVIndex(client);
-        obtainAirQuality(client);
-        if (RxWeather && RxForecast) {
+        if (RxWeather) {
           epd_poweron();
           epd_clear();
           memset(framebuffer, 0xFF, EPD_WIDTH * EPD_HEIGHT / 2);
@@ -491,19 +484,14 @@ void setup() {
       WakeUp = (CurrentHour >= WakeupHour && CurrentHour < SleepHour);
     if (WakeUp) {
       byte Attempts = 1;
-      bool RxWeather  = false;
-      bool RxForecast = false;
-      WiFiClient client;   // wifi client object
-      while ((RxWeather == false || RxForecast == false) && Attempts <= 2) { // Try up-to 2 times for Weather and Forecast data
-        if (RxWeather  == false) RxWeather  = obtainWeatherData(client, "weather");
-        if (RxForecast == false) RxForecast = obtainWeatherData(client, "forecast");
+      bool RxWeather = false;
+      WiFiClientSecure client;   // wifi client object
+      while (RxWeather == false && Attempts <= 2) { // Try up-to 2 times
+        RxWeather = obtainWeatherData(client);
         Attempts++;
       }
-      // Fetch UV Index and Air Quality (optional, don't fail if unavailable)
-      obtainUVIndex(client);
-      obtainAirQuality(client);
       Serial.println("Received all weather data...");
-      if (RxWeather && RxForecast) { // Only if received both Weather or Forecast proceed
+      if (RxWeather) { // Only if received weather data proceed
         StopWiFi();
         epd_poweron();
         epd_clear();
@@ -527,86 +515,174 @@ void setup() {
   BeginSleep();
 }
 
-void Convert_Readings_to_Imperial() { // Only the first 3-hours are used
-  WxConditions[0].Pressure = hPa_to_inHg(WxConditions[0].Pressure);
-  WxForecast[0].Rainfall   = mm_to_inches(WxForecast[0].Rainfall);
-  WxForecast[0].Snowfall   = mm_to_inches(WxForecast[0].Snowfall);
+void Convert_Readings_to_Imperial() {
+  // Pressure stays in mb/hPa for both unit systems (no conversion needed)
+  WxForecast[0].Rainfall = mm_to_inches(WxForecast[0].Rainfall);
 }
 
-bool DecodeWeather(WiFiClient& json, String Type) {
+// Decode WeatherAPI JSON response (all data in one response)
+bool DecodeWeatherAPI(const String& json) {
   Serial.print(F("\nCreating object...and "));
-  DynamicJsonDocument doc(64 * 1024);                      // allocate the JsonDocument
-  DeserializationError error = deserializeJson(doc, json); // Deserialize the JSON document
-  if (error) {                                             // Test if parsing succeeds.
+  DynamicJsonDocument doc(64 * 1024);  // WeatherAPI response is large (uses PSRAM on ESP32S3)
+  DeserializationError error = deserializeJson(doc, json);
+  if (error) {
     Serial.print(F("deserializeJson() failed: "));
     Serial.println(error.c_str());
     return false;
   }
-  // convert it to a JsonObject
+
   JsonObject root = doc.as<JsonObject>();
-  Serial.println(" Decoding " + Type + " data");
-  if (Type == "weather") {
-    // All Serial.println statements are for diagnostic purposes and some are not required, remove if not needed with //
-    //WxConditions[0].lon         = root["coord"]["lon"].as<float>();              Serial.println(" Lon: " + String(WxConditions[0].lon));
-    //WxConditions[0].lat         = root["coord"]["lat"].as<float>();              Serial.println(" Lat: " + String(WxConditions[0].lat));
-    WxConditions[0].Main0       = root["weather"][0]["main"].as<char*>();        Serial.println("Main: " + String(WxConditions[0].Main0));
-    WxConditions[0].Forecast0   = root["weather"][0]["description"].as<char*>(); Serial.println("For0: " + String(WxConditions[0].Forecast0));
-    //WxConditions[0].Forecast1   = root["weather"][1]["description"].as<char*>(); Serial.println("For1: " + String(WxConditions[0].Forecast1));
-    //WxConditions[0].Forecast2   = root["weather"][2]["description"].as<char*>(); Serial.println("For2: " + String(WxConditions[0].Forecast2));
-    WxConditions[0].Icon        = root["weather"][0]["icon"].as<char*>();        Serial.println("Icon: " + String(WxConditions[0].Icon));
-    WxConditions[0].Temperature = root["main"]["temp"].as<float>();              Serial.println("Temp: " + String(WxConditions[0].Temperature));
-    WxConditions[0].Feelslike   = root["main"]["feels_like"].as<float>();        Serial.println("Feel: " + String(WxConditions[0].Feelslike));
-    WxConditions[0].Pressure    = root["main"]["pressure"].as<float>();          Serial.println("Pres: " + String(WxConditions[0].Pressure));
-    WxConditions[0].Humidity    = root["main"]["humidity"].as<float>();          Serial.println("Humi: " + String(WxConditions[0].Humidity));
-    WxConditions[0].Low         = root["main"]["temp_min"].as<float>();          Serial.println("TLow: " + String(WxConditions[0].Low));
-    WxConditions[0].High        = root["main"]["temp_max"].as<float>();          Serial.println("THig: " + String(WxConditions[0].High));
-    WxConditions[0].Windspeed   = root["wind"]["speed"].as<float>();             Serial.println("WSpd: " + String(WxConditions[0].Windspeed));
-    WxConditions[0].Winddir     = root["wind"]["deg"].as<float>();               Serial.println("WDir: " + String(WxConditions[0].Winddir));
-    WxConditions[0].Cloudcover  = root["clouds"]["all"].as<int>();               Serial.println("CCov: " + String(WxConditions[0].Cloudcover)); // in % of cloud cover
-    WxConditions[0].Visibility  = root["visibility"].as<int>();                  Serial.println("Visi: " + String(WxConditions[0].Visibility)); // in metres
-    WxConditions[0].Rainfall    = root["rain"]["1h"].as<float>();                Serial.println("Rain: " + String(WxConditions[0].Rainfall));
-    WxConditions[0].Snowfall    = root["snow"]["1h"].as<float>();                Serial.println("Snow: " + String(WxConditions[0].Snowfall));
-    //WxConditions[0].Country     = root["sys"]["country"].as<char*>();            Serial.println("Ctry: " + String(WxConditions[0].Country));
-    WxConditions[0].Sunrise     = root["sys"]["sunrise"].as<int>();              Serial.println("SRis: " + String(WxConditions[0].Sunrise));
-    WxConditions[0].Sunset      = root["sys"]["sunset"].as<int>();               Serial.println("SSet: " + String(WxConditions[0].Sunset));
-    WxConditions[0].Timezone    = root["timezone"].as<int>();                    Serial.println("TZon: " + String(WxConditions[0].Timezone));
+  Serial.println(" Decoding WeatherAPI data");
+
+  // Location data
+  JsonObject location = root["location"];
+  WxConditions[0].Neighborhood = location["name"].as<String>();
+  WxConditions[0].Region = location["region"].as<String>();
+  WxConditions[0].Country = location["country"].as<String>();
+  WxConditions[0].lat = location["lat"].as<float>();
+  WxConditions[0].lon = location["lon"].as<float>();
+  Serial.println("Location: " + WxConditions[0].Neighborhood + ", " + WxConditions[0].Region);
+
+  // Current conditions
+  JsonObject current = root["current"];
+  WxConditions[0].Temperature = current["temp_c"].as<float>();
+  WxConditions[0].Feelslike = current["feelslike_c"].as<float>();
+  WxConditions[0].Humidity = current["humidity"].as<float>();
+  WxConditions[0].Pressure = current["pressure_mb"].as<float>();
+  WxConditions[0].Windspeed = current["wind_kph"].as<float>();
+  WxConditions[0].Winddir = current["wind_degree"].as<float>();
+  WxConditions[0].WinddirStr = current["wind_dir"].as<String>();
+  WxConditions[0].Gust = current["gust_kph"].as<float>();
+  WxConditions[0].Cloudcover = current["cloud"].as<int>();
+  WxConditions[0].Visibility = current["vis_km"].as<int>() * 1000;  // Convert to meters
+  WxConditions[0].UVIndex = current["uv"].as<float>();
+  WxConditions[0].Dewpoint = current["dewpoint_c"].as<float>();
+  WxConditions[0].Rainfall = current["precip_mm"].as<float>();
+
+  // Condition text and icon code
+  WxConditions[0].Forecast0 = current["condition"]["text"].as<String>();
+  int conditionCode = current["condition"]["code"].as<int>();
+  WxConditions[0].Icon = mapWeatherAPIIcon(conditionCode, current["is_day"].as<int>());
+
+  Serial.printf("Temp: %.1f, Feels: %.1f, Hum: %.0f%%\n",
+    WxConditions[0].Temperature, WxConditions[0].Feelslike, WxConditions[0].Humidity);
+  Serial.printf("Wind: %.1f kph %s, Gust: %.1f\n",
+    WxConditions[0].Windspeed, WxConditions[0].WinddirStr.c_str(), WxConditions[0].Gust);
+  Serial.printf("UV: %.1f, Condition: %s\n", WxConditions[0].UVIndex, WxConditions[0].Forecast0.c_str());
+
+  // Air Quality (included in current)
+  if (current.containsKey("air_quality")) {
+    JsonObject aqi = current["air_quality"];
+    WxConditions[0].CO = aqi["co"].as<float>();
+    WxConditions[0].NO2 = aqi["no2"].as<float>();
+    WxConditions[0].O3 = aqi["o3"].as<float>();
+    WxConditions[0].SO2 = aqi["so2"].as<float>();
+    WxConditions[0].PM2_5 = aqi["pm2_5"].as<float>();
+    WxConditions[0].PM10 = aqi["pm10"].as<float>();
+    WxConditions[0].AQI = aqi["us-epa-index"].as<int>();
+    WxConditions[0].AQI_DEFRA = aqi["gb-defra-index"].as<int>();
+    Serial.printf("AQI: %d, PM2.5: %.1f, PM10: %.1f\n",
+      WxConditions[0].AQI, WxConditions[0].PM2_5, WxConditions[0].PM10);
   }
-  if (Type == "forecast") {
-    //Serial.println(json);
-    Serial.print(F("\nReceiving Forecast period - ")); //------------------------------------------------
-    JsonArray list                  = root["list"];
-    for (byte r = 0; r < max_readings; r++) {
-      Serial.println("\nPeriod-" + String(r) + "--------------");
-      WxForecast[r].Dt                = list[r]["dt"].as<int>();
-      WxForecast[r].Temperature       = list[r]["main"]["temp"].as<float>();              Serial.println("Temp: " + String(WxForecast[r].Temperature));
-      WxForecast[r].Low               = list[r]["main"]["temp_min"].as<float>();          Serial.println("TLow: " + String(WxForecast[r].Low));
-      WxForecast[r].High              = list[r]["main"]["temp_max"].as<float>();          Serial.println("THig: " + String(WxForecast[r].High));
-      WxForecast[r].Pressure          = list[r]["main"]["pressure"].as<float>();          Serial.println("Pres: " + String(WxForecast[r].Pressure));
-      WxForecast[r].Humidity          = list[r]["main"]["humidity"].as<float>();          Serial.println("Humi: " + String(WxForecast[r].Humidity));
-      //WxForecast[r].Forecast0         = list[r]["weather"][0]["main"].as<char*>();        Serial.println("For0: " + String(WxForecast[r].Forecast0));
-      //WxForecast[r].Forecast1         = list[r]["weather"][1]["main"].as<char*>();        Serial.println("For1: " + String(WxForecast[r].Forecast1));
-      //WxForecast[r].Forecast2         = list[r]["weather"][2]["main"].as<char*>();        Serial.println("For2: " + String(WxForecast[r].Forecast2));
-      WxForecast[r].Icon              = list[r]["weather"][0]["icon"].as<char*>();        Serial.println("Icon: " + String(WxForecast[r].Icon));
-      //WxForecast[r].Description       = list[r]["weather"][0]["description"].as<char*>(); Serial.println("Desc: " + String(WxForecast[r].Description));
-      //WxForecast[r].Cloudcover        = list[r]["clouds"]["all"].as<int>();               Serial.println("CCov: " + String(WxForecast[r].Cloudcover)); // in % of cloud cover
-      //WxForecast[r].Windspeed         = list[r]["wind"]["speed"].as<float>();             Serial.println("WSpd: " + String(WxForecast[r].Windspeed));
-      //WxForecast[r].Winddir           = list[r]["wind"]["deg"].as<float>();               Serial.println("WDir: " + String(WxForecast[r].Winddir));
-      WxForecast[r].Rainfall          = list[r]["rain"]["3h"].as<float>();                Serial.println("Rain: " + String(WxForecast[r].Rainfall));
-      WxForecast[r].Snowfall          = list[r]["snow"]["3h"].as<float>();                Serial.println("Snow: " + String(WxForecast[r].Snowfall));
-      WxForecast[r].Pop               = list[r]["pop"].as<float>();                       Serial.println("PoP:  " + String(WxForecast[r].Pop));
-      WxForecast[r].Period            = list[r]["dt_txt"].as<char*>();                    Serial.println("Peri: " + String(WxForecast[r].Period));
+
+  // Forecast data (3 days)
+  JsonArray forecastDays = root["forecast"]["forecastday"];
+  int forecastIdx = 0;
+
+  for (int day = 0; day < forecastDays.size() && day < 3; day++) {
+    JsonObject dayData = forecastDays[day];
+    JsonObject dayInfo = dayData["day"];
+    JsonObject astro = dayData["astro"];
+    JsonArray hours = dayData["hour"];
+
+    // Store astronomy data for day 0 (today)
+    if (day == 0) {
+      WxConditions[0].SunriseStr = astro["sunrise"].as<String>();
+      WxConditions[0].SunsetStr = astro["sunset"].as<String>();
+      WxConditions[0].Moonrise = astro["moonrise"].as<String>();
+      WxConditions[0].Moonset = astro["moonset"].as<String>();
+      WxConditions[0].MoonPhase = astro["moon_phase"].as<String>();
+      WxConditions[0].MoonIllum = astro["moon_illumination"].as<int>();
+
+      // Also store daily high/low for today
+      WxConditions[0].High = dayInfo["maxtemp_c"].as<float>();
+      WxConditions[0].Low = dayInfo["mintemp_c"].as<float>();
+
+      Serial.printf("Sun: %s - %s\n", WxConditions[0].SunriseStr.c_str(), WxConditions[0].SunsetStr.c_str());
+      Serial.printf("Moon: %s (%d%%), Rise: %s, Set: %s\n",
+        WxConditions[0].MoonPhase.c_str(), WxConditions[0].MoonIllum,
+        WxConditions[0].Moonrise.c_str(), WxConditions[0].Moonset.c_str());
     }
-    //------------------------------------------
-    float pressure_trend = WxForecast[0].Pressure - WxForecast[2].Pressure; // Measure pressure slope between ~now and later
-    pressure_trend = ((int)(pressure_trend * 10)) / 10.0; // Remove any small variations less than 0.1
+
+    // Process hourly data (24 hours per day, but we'll sample every 3 hours like OWM)
+    for (int h = 0; h < hours.size() && forecastIdx < max_readings; h += 3) {
+      JsonObject hour = hours[h];
+      WxForecast[forecastIdx].Dt = hour["time_epoch"].as<int>();
+      WxForecast[forecastIdx].Temperature = hour["temp_c"].as<float>();
+      WxForecast[forecastIdx].Feelslike = hour["feelslike_c"].as<float>();
+      WxForecast[forecastIdx].Humidity = hour["humidity"].as<float>();
+      WxForecast[forecastIdx].Pressure = hour["pressure_mb"].as<float>();
+      WxForecast[forecastIdx].Windspeed = hour["wind_kph"].as<float>();
+      WxForecast[forecastIdx].Winddir = hour["wind_degree"].as<float>();
+      WxForecast[forecastIdx].Rainfall = hour["precip_mm"].as<float>();
+      WxForecast[forecastIdx].ChanceOfRain = hour["chance_of_rain"].as<int>();
+      WxForecast[forecastIdx].ChanceOfSnow = hour["chance_of_snow"].as<int>();
+      WxForecast[forecastIdx].Pop = hour["chance_of_rain"].as<float>() / 100.0;  // Convert to 0-1 scale
+      WxForecast[forecastIdx].Cloudcover = hour["cloud"].as<int>();
+      WxForecast[forecastIdx].Period = hour["time"].as<String>();
+
+      // Map icon
+      int code = hour["condition"]["code"].as<int>();
+      WxForecast[forecastIdx].Icon = mapWeatherAPIIcon(code, hour["is_day"].as<int>());
+      WxForecast[forecastIdx].Forecast0 = hour["condition"]["text"].as<String>();
+
+      // Store daily high/low
+      WxForecast[forecastIdx].High = dayInfo["maxtemp_c"].as<float>();
+      WxForecast[forecastIdx].Low = dayInfo["mintemp_c"].as<float>();
+
+      forecastIdx++;
+    }
+  }
+
+  // Calculate pressure trend
+  if (forecastIdx > 2) {
+    float pressure_trend = WxForecast[0].Pressure - WxForecast[2].Pressure;
+    pressure_trend = ((int)(pressure_trend * 10)) / 10.0;
     WxConditions[0].Trend = "=";
     if (pressure_trend > 0)  WxConditions[0].Trend = "+";
     if (pressure_trend < 0)  WxConditions[0].Trend = "-";
     if (pressure_trend == 0) WxConditions[0].Trend = "0";
-
-    if (Units == "I") Convert_Readings_to_Imperial();
   }
+
+  if (Units == "I") Convert_Readings_to_Imperial();
+
+  Serial.printf("Parsed %d forecast periods\n", forecastIdx);
   return true;
+}
+
+// Map WeatherAPI condition codes to OWM-style icon codes
+String mapWeatherAPIIcon(int code, int isDay) {
+  // WeatherAPI codes: https://www.weatherapi.com/docs/weather_conditions.json
+  // Map to OWM icon format: 01d, 02d, 03d, 04d, 09d, 10d, 11d, 13d, 50d (d=day, n=night)
+  String suffix = isDay ? "d" : "n";
+
+  switch(code) {
+    case 1000: return "01" + suffix;  // Sunny/Clear
+    case 1003: return "02" + suffix;  // Partly cloudy
+    case 1006: return "03" + suffix;  // Cloudy
+    case 1009: return "04" + suffix;  // Overcast
+    case 1030: case 1135: case 1147: return "50" + suffix;  // Mist/Fog
+    case 1063: case 1180: case 1183: case 1186: case 1189: return "10" + suffix;  // Rain
+    case 1066: case 1210: case 1213: case 1216: case 1219: case 1222: case 1225: return "13" + suffix;  // Snow
+    case 1087: case 1273: case 1276: case 1279: case 1282: return "11" + suffix;  // Thunder
+    case 1150: case 1153: case 1168: case 1171: return "09" + suffix;  // Drizzle
+    case 1192: case 1195: case 1198: case 1201: return "10" + suffix;  // Heavy rain
+    case 1204: case 1207: case 1237: case 1249: case 1252: return "13" + suffix;  // Sleet
+    case 1114: case 1117: return "13" + suffix;  // Blizzard
+    case 1240: case 1243: case 1246: return "09" + suffix;  // Showers
+    case 1255: case 1258: case 1261: case 1264: return "13" + suffix;  // Snow showers
+    default: return "03" + suffix;  // Default to cloudy
+  }
 }
 
 String ConvertUnixTime(int unix_time) {
@@ -623,125 +699,46 @@ String ConvertUnixTime(int unix_time) {
   return output;
 }
 
-bool obtainWeatherData(WiFiClient & client, const String & RequestType) {
-  const String units = (Units == "M" ? "metric" : "imperial");
-  client.stop(); // close connection before sending a new request
+// Fetch all weather data from WeatherAPI (current + forecast + AQI in one call)
+bool obtainWeatherData(WiFiClientSecure & client) {
+  client.stop();
   HTTPClient http;
-  //String uri = "/data/2.5/" + RequestType + "?q=" + City + "," + Country + "&APPID=" + apikey + "&mode=json&units=" + units + "&lang=" + Language;
-  String uri = "/data/2.5/" + RequestType + "?lat=" + Latitude + "&lon=" + Longitude + "&appid=" + apikey + "&mode=json&units=" + units + "&lang=" + Language;  
 
-  if (RequestType != "weather") {
-    uri += "&cnt=" + String(max_readings);
-  }
-  http.begin(client, server, 80, uri); //http.begin(uri,test_root_ca); //HTTPS example connection
+  // WeatherAPI endpoint - all data in one call
+  String uri = "/v1/forecast.json?key=" + apikey +
+               "&q=" + Latitude + "," + Longitude +
+               "&days=3&aqi=yes&alerts=no&lang=" + Language;
+
+  Serial.println("Fetching: https://" + String(server) + uri);
+
+  // WeatherAPI requires HTTPS
+  client.setInsecure();  // Skip certificate verification (for simplicity)
+  http.begin(client, server, 443, uri, true);  // port 443, HTTPS = true
   int httpCode = http.GET();
+
   if (httpCode == HTTP_CODE_OK) {
-    if (!DecodeWeather(http.getStream(), RequestType)) return false;
+    // Read response as String (more reliable with HTTPS)
+    String payload = http.getString();
+    Serial.printf("Response size: %d bytes\n", payload.length());
+
+    if (!DecodeWeatherAPI(payload)) {
+      client.stop();
+      http.end();
+      return false;
+    }
     client.stop();
     http.end();
     return true;
-  }
-  else
-  {
-    Serial.printf("connection failed, error: %s", http.errorToString(httpCode).c_str());
+  } else {
+    Serial.printf("Connection failed, error: %s (code: %d)\n", http.errorToString(httpCode).c_str(), httpCode);
     client.stop();
     http.end();
     return false;
   }
-  http.end();
-  return true;
-}
-
-// Check if it's currently nighttime (between sunset and sunrise)
-bool isNightTime() {
-  time_t now = time(nullptr);
-  int sunrise = WxConditions[0].Sunrise;
-  int sunset = WxConditions[0].Sunset;
-
-  // If we don't have valid sunrise/sunset data, assume daytime
-  if (sunrise == 0 || sunset == 0) return false;
-
-  // Nighttime is after sunset OR before sunrise
-  return (now > sunset || now < sunrise);
-}
-
-// Fetch UV Index from OpenWeatherMap
-bool obtainUVIndex(WiFiClient & client) {
-  // If it's nighttime, UV index is 0
-  if (isNightTime()) {
-    WxConditions[0].UVIndex = 0;
-    Serial.println("UV Index: 0 (nighttime)");
-    return true;
-  }
-
-  client.stop();
-  HTTPClient http;
-  String uri = "/data/2.5/uvi?lat=" + Latitude + "&lon=" + Longitude + "&appid=" + apikey;
-  http.begin(client, server, 80, uri);
-  int httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK) {
-    DynamicJsonDocument doc(1024);
-    DeserializationError error = deserializeJson(doc, http.getStream());
-    if (!error) {
-      WxConditions[0].UVIndex = doc["value"].as<float>();
-      Serial.printf("UV Index: %.1f\n", WxConditions[0].UVIndex);
-    }
-    http.end();
-    return !error;
-  }
-  http.end();
-  return false;
-}
-
-// Fetch Air Quality from OpenWeatherMap
-bool obtainAirQuality(WiFiClient & client) {
-  client.stop();
-  HTTPClient http;
-  String uri = "/data/2.5/air_pollution?lat=" + Latitude + "&lon=" + Longitude + "&appid=" + apikey;
-  http.begin(client, server, 80, uri);
-  int httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK) {
-    DynamicJsonDocument doc(2048);
-    DeserializationError error = deserializeJson(doc, http.getStream());
-    if (!error) {
-      JsonObject list0 = doc["list"][0];
-      WxConditions[0].AQI = list0["main"]["aqi"].as<int>();
-      JsonObject components = list0["components"];
-      WxConditions[0].PM2_5 = components["pm2_5"].as<float>();
-      WxConditions[0].PM10 = components["pm10"].as<float>();
-      WxConditions[0].CO = components["co"].as<float>();
-      WxConditions[0].NO2 = components["no2"].as<float>();
-      WxConditions[0].O3 = components["o3"].as<float>();
-      WxConditions[0].SO2 = components["so2"].as<float>();
-      Serial.printf("AQI: %d, PM2.5: %.1f\n", WxConditions[0].AQI, WxConditions[0].PM2_5);
-    }
-    http.end();
-    return !error;
-  }
-  http.end();
-  return false;
 }
 
 float mm_to_inches(float value_mm) {
   return MM_TO_INCHES * value_mm;
-}
-
-float hPa_to_inHg(float value_hPa) {
-  return HPA_TO_INHG * value_hPa;
-}
-
-int JulianDate(int d, int m, int y) {
-  int mm, yy, k1, k2, k3, j;
-  yy = y - (int)((12 - m) / 10);
-  mm = m + 9;
-  if (mm >= 12) mm = mm - 12;
-  k1 = (int)(365.25 * (yy + 4712));
-  k2 = (int)(30.6001 * mm + 0.5);
-  k3 = (int)((int)((yy / 100) + 49) * 0.75) - 38;
-  // 'j' for dates in Julian calendar:
-  j = k1 + k2 + d + 59 + 1;
-  if (j > 2299160) j = j - k3; // 'j' is the Julian date at 12h UT (Universal Time) For Gregorian calendar:
-  return j;
 }
 
 float SumOfPrecip(float DataArray[], int readings) {
@@ -938,92 +935,115 @@ void DisplayForecastWeather(int x, int y, int displayPos, int dataIndex) {
   DisplayConditionsSection(x + fwidth / 2, y + 90, WxForecast[dataIndex].Icon, SmallIcon);
   setFont(OpenSans10B);
   drawString(x + fwidth / 2, y + 30, String(ConvertUnixTime(WxForecast[dataIndex].Dt + WxConditions[0].Timezone).substring(0, 5)), CENTER);
-  drawString(x + fwidth / 2, y + 117, String(WxForecast[dataIndex].High, 0) + "°/" + String(WxForecast[dataIndex].Low, 0) + "°", CENTER);
+  // Show hourly temperature instead of daily high/low
+  drawString(x + fwidth / 2, y + 117, String(WxForecast[dataIndex].Temperature, 0) + "°", CENTER);
 }
 
+// Translate WeatherAPI moon phase to local language
+String TranslateMoonPhase(String phase) {
+  phase.toLowerCase();
+  phase.trim();
 
-double NormalizedMoonPhase(int d, int m, int y) {
-  int j = JulianDate(d, m, y);
-  //Calculate approximate moon phase
-  double Phase = (j + 4.867) / 29.53059;
-  return (Phase - (int) Phase);
+  if (phase.indexOf("new") >= 0)              return TXT_MOON_NEW;
+  if (phase.indexOf("waxing") >= 0 && phase.indexOf("crescent") >= 0) return TXT_MOON_WAXING_CRESCENT;
+  if (phase.indexOf("first") >= 0)            return TXT_MOON_FIRST_QUARTER;
+  if (phase.indexOf("waxing") >= 0 && phase.indexOf("gibbous") >= 0)  return TXT_MOON_WAXING_GIBBOUS;
+  if (phase.indexOf("full") >= 0)             return TXT_MOON_FULL;
+  if (phase.indexOf("waning") >= 0 && phase.indexOf("gibbous") >= 0)  return TXT_MOON_WANING_GIBBOUS;
+  if (phase.indexOf("last") >= 0 || phase.indexOf("third") >= 0)      return TXT_MOON_THIRD_QUARTER;
+  if (phase.indexOf("waning") >= 0 && phase.indexOf("crescent") >= 0) return TXT_MOON_WANING_CRESCENT;
+
+  return phase;
 }
 
-void DisplayAstronomySection(int x, int y) {
-  setFont(OpenSans10B);
-  time_t now = time(NULL);
-  struct tm * now_utc  = gmtime(&now);
-  drawString(x + 5, y + 95, MoonPhase(now_utc->tm_mday, now_utc->tm_mon + 1, now_utc->tm_year + 1900, Hemisphere), LEFT);
-  DrawMoonImage(x + 10, y + 23-5); // Different references!
-  DrawMoon(x - 28, y - 15-5, 75, now_utc->tm_mday, now_utc->tm_mon + 1, now_utc->tm_year + 1900, Hemisphere); // Spaced at 1/2 moon size, so 10 - 75/2 = -28
-  drawString(x + 115, y + 30, ConvertUnixTime(WxConditions[0].Sunrise).substring(0, 5), LEFT); // Sunrise
-  drawString(x + 115, y + 70, ConvertUnixTime(WxConditions[0].Sunset).substring(0, 5), LEFT);  // Sunset
-  DrawSunriseImage(x + 180, y + 10);
-  DrawSunsetImage(x + 180, y + 50);
-}
+// Draw moon using WeatherAPI illumination data
+void DrawMoonFromAPI(int x, int y, int diameter, int illumination, String phase, String hemisphere) {
+  // Convert illumination (0-100%) to phase (0.0-1.0)
+  // Waxing: 0 -> 0.5 (new to full), Waning: 0.5 -> 1.0 (full to new)
+  double Phase;
+  phase.toLowerCase();
 
-void DrawMoon(int x, int y, int diameter, int dd, int mm, int yy, String hemisphere) {
-  double Phase = NormalizedMoonPhase(dd, mm, yy);
+  if (phase.indexOf("waxing") >= 0 || phase == "first quarter") {
+    // Waxing: illumination 0-100 maps to phase 0.0-0.5
+    Phase = (illumination / 100.0) * 0.5;
+  } else if (phase.indexOf("waning") >= 0 || phase == "last quarter") {
+    // Waning: illumination 100-0 maps to phase 0.5-1.0
+    Phase = 0.5 + ((100 - illumination) / 100.0) * 0.5;
+  } else if (phase == "full moon") {
+    Phase = 0.5;
+  } else {
+    // New moon
+    Phase = 0.0;
+  }
+
   hemisphere.toLowerCase();
   if (hemisphere == "south") Phase = 1 - Phase;
-  // Draw dark part of moon
-  fillCircle(x + diameter - 1, y + diameter, diameter / 2 + 1, DarkGrey);
+
+  // Draw using existing moon drawing logic
   const int number_of_lines = 90;
   for (double Ypos = 0; Ypos <= number_of_lines / 2; Ypos++) {
     double Xpos = sqrt(number_of_lines / 2 * number_of_lines / 2 - Ypos * Ypos);
-    // Determine the edges of the lighted part of the moon
     double Rpos = 2 * Xpos;
     double Xpos1, Xpos2;
     if (Phase < 0.5) {
       Xpos1 = -Xpos;
       Xpos2 = Rpos - 2 * Phase * Rpos - Xpos;
-    }
-    else {
+    } else {
       Xpos1 = Xpos;
       Xpos2 = Xpos - 2 * Phase * Rpos + Rpos;
     }
-    // Draw light part of moon
     double pW1x = (Xpos1 + number_of_lines) / number_of_lines * diameter + x;
-    double pW1y = (number_of_lines - Ypos)  / number_of_lines * diameter + y;
+    double pW1y = (number_of_lines - Ypos) / number_of_lines * diameter + y;
     double pW2x = (Xpos2 + number_of_lines) / number_of_lines * diameter + x;
-    double pW2y = (number_of_lines - Ypos)  / number_of_lines * diameter + y;
+    double pW2y = (number_of_lines - Ypos) / number_of_lines * diameter + y;
     double pW3x = (Xpos1 + number_of_lines) / number_of_lines * diameter + x;
-    double pW3y = (Ypos + number_of_lines)  / number_of_lines * diameter + y;
+    double pW3y = (Ypos + number_of_lines) / number_of_lines * diameter + y;
     double pW4x = (Xpos2 + number_of_lines) / number_of_lines * diameter + x;
-    double pW4y = (Ypos + number_of_lines)  / number_of_lines * diameter + y;
-    drawLine(pW1x, pW1y, pW2x, pW2y, White);
-    drawLine(pW3x, pW3y, pW4x, pW4y, White);
+    double pW4y = (Ypos + number_of_lines) / number_of_lines * diameter + y;
+    drawLine(pW1x, pW1y, pW2x, pW2y, LightGrey);
+    drawLine(pW3x, pW3y, pW4x, pW4y, LightGrey);
   }
   drawCircle(x + diameter - 1, y + diameter, diameter / 2, Black);
 }
 
-String MoonPhase(int d, int m, int y, String hemisphere) {
-  int c, e;
-  double jd;
-  int b;
-  if (m < 3) {
-    y--;
-    m += 12;
-  }
-  ++m;
-  c   = 365.25 * y;
-  e   = 30.6  * m;
-  jd  = c + e + d - 694039.09;     /* jd is total days elapsed */
-  jd /= 29.53059;                        /* divide by the moon cycle (29.53 days) */
-  b   = jd;                              /* int(jd) -> b, take integer part of jd */
-  jd -= b;                               /* subtract integer part to leave fractional part of original jd */
-  b   = jd * 8 + 0.5;                /* scale fraction from 0-8 and round by adding 0.5 */
-  b   = b & 7;                           /* 0 and 8 are the same phase so modulo 8 for 0 */
-  if (hemisphere == "south") b = 7 - b;
-  if (b == 0) return TXT_MOON_NEW;              // New;              0%  illuminated
-  if (b == 1) return TXT_MOON_WAXING_CRESCENT;  // Waxing crescent; 25%  illuminated
-  if (b == 2) return TXT_MOON_FIRST_QUARTER;    // First quarter;   50%  illuminated
-  if (b == 3) return TXT_MOON_WAXING_GIBBOUS;   // Waxing gibbous;  75%  illuminated
-  if (b == 4) return TXT_MOON_FULL;             // Full;            100% illuminated
-  if (b == 5) return TXT_MOON_WANING_GIBBOUS;   // Waning gibbous;  75%  illuminated
-  if (b == 6) return TXT_MOON_THIRD_QUARTER;    // Third quarter;   50%  illuminated
-  if (b == 7) return TXT_MOON_WANING_CRESCENT;  // Waning crescent; 25%  illuminated
-  return "";
+// Convert "06:40 AM" or "06:48 PM" to 24-hour format "06:40" or "18:48"
+String convertTo24Hour(String timeStr) {
+  timeStr.trim();
+  timeStr.toUpperCase();
+
+  int colonPos = timeStr.indexOf(':');
+  if (colonPos < 0) return timeStr;
+
+  int hour = timeStr.substring(0, colonPos).toInt();
+  String minutePart = timeStr.substring(colonPos + 1, colonPos + 3);
+
+  bool isPM = timeStr.indexOf("PM") >= 0;
+  bool isAM = timeStr.indexOf("AM") >= 0;
+
+  if (isPM && hour != 12) hour += 12;
+  if (isAM && hour == 12) hour = 0;
+
+  char buf[6];
+  sprintf(buf, "%02d:%s", hour, minutePart.c_str());
+  return String(buf);
+}
+
+void DisplayAstronomySection(int x, int y) {
+  setFont(OpenSans10B);
+
+  // Moon phase text from WeatherAPI (translated)
+  String moonPhaseText = TranslateMoonPhase(WxConditions[0].MoonPhase);
+  drawString(x + 5, y + 95, moonPhaseText, LEFT);
+
+  DrawMoonImage(x + 10, y + 23-5);
+  // Draw moon using illumination from WeatherAPI
+  DrawMoonFromAPI(x - 28, y - 15-5, 75, WxConditions[0].MoonIllum, WxConditions[0].MoonPhase, Hemisphere);
+
+  // Sunrise/Sunset in 24-hour format
+  drawString(x + 115, y + 30, convertTo24Hour(WxConditions[0].SunriseStr), LEFT);
+  drawString(x + 115, y + 70, convertTo24Hour(WxConditions[0].SunsetStr), LEFT);
+  DrawSunriseImage(x + 180, y + 10);
+  DrawSunsetImage(x + 180, y + 50);
 }
 
 void DrawMoonImage(int x, int y) {
@@ -1055,12 +1075,11 @@ void DisplayForecastSection(int x, int y) {
     DisplayForecastWeather(x, y, i, startIdx + i);
   }
   int r = 0;
-  do { // Pre-load temporary arrays with with data - because C parses by reference and remember that[1] has already been converted to I units
-    if (Units == "I") pressure_readings[r] = WxForecast[r].Pressure * HPA_TO_INHG;   else pressure_readings[r] = WxForecast[r].Pressure;
-    if (Units == "I") rain_readings[r]     = WxForecast[r].Rainfall * MM_TO_INCHES; else rain_readings[r]     = WxForecast[r].Rainfall;
-    if (Units == "I") snow_readings[r]     = WxForecast[r].Snowfall * MM_TO_INCHES; else snow_readings[r]     = WxForecast[r].Snowfall;
-    temperature_readings[r]                = WxForecast[r].Temperature;
-    humidity_readings[r]                   = WxForecast[r].Humidity;
+  do { // Pre-load temporary arrays with data for graphs
+    pressure_readings[r] = WxForecast[r].Pressure;  // mb/hPa for both unit systems
+    if (Units == "I") rain_readings[r] = WxForecast[r].Rainfall * MM_TO_INCHES; else rain_readings[r] = WxForecast[r].Rainfall;
+    temperature_readings[r] = WxForecast[r].Temperature;
+    humidity_readings[r] = WxForecast[r].Humidity;
     r++;
   } while (r < max_readings);
   int gwidth = 175, gheight = 100;
@@ -1071,10 +1090,8 @@ void DisplayForecastSection(int x, int y) {
   DrawGraph(gx - 10, gy, gwidth, gheight, 10, 30, Units == "M" ? TXT_TEMPERATURE_C : TXT_TEMPERATURE_F, temperature_readings, main_screen_readings, autoscale_on, barchart_off, 15);
   DrawGraph(gx + 1 * gap, gy, gwidth, gheight, 900, 1050, Units == "M" ? TXT_PRESSURE_HPA : TXT_PRESSURE_IN, pressure_readings, main_screen_readings, autoscale_on, barchart_off);
   DrawGraph(gx + 2 * gap, gy, gwidth, gheight, 0, 100,   TXT_HUMIDITY_PERCENT, humidity_readings, main_screen_readings, autoscale_off, barchart_off);
-  if (SumOfPrecip(rain_readings, main_screen_readings) >= SumOfPrecip(snow_readings, main_screen_readings))
-    DrawGraph(gx + 3 * gap, gy, gwidth, gheight, 0, 30, Units == "M" ? TXT_RAINFALL_MM : TXT_RAINFALL_IN, rain_readings, main_screen_readings, autoscale_on, barchart_on);
-  else
-    DrawGraph(gx + 3 * gap, gy, gwidth, gheight, 0, 30, Units == "M" ? TXT_SNOWFALL_MM : TXT_SNOWFALL_IN, snow_readings, main_screen_readings, autoscale_on, barchart_on);
+  // WeatherAPI precip_mm includes rain+snow combined
+  DrawGraph(gx + 3 * gap, gy, gwidth, gheight, 0, 30, Units == "M" ? TXT_PRECIPITATION_MM : TXT_PRECIPITATION_IN, rain_readings, main_screen_readings, autoscale_on, barchart_on);
 }
 
 void DisplayConditionsSection(int x, int y, String IconName, bool IconSize) {
@@ -1114,7 +1131,7 @@ void DrawSegment(int x, int y, int o1, int o2, int o3, int o4, int o11, int o12,
 }
 
 void DrawPressureAndTrend(int x, int y, float pressure, String slope) {
-  drawString(x + 25, y - 10, String(pressure, (Units == "M" ? 0 : 1)) + (Units == "M" ? "hPa" : "in"), LEFT);
+  drawString(x + 25, y - 10, String(pressure, 0) + TXT_PRESSURE_UNIT, LEFT);
   // Arrow with shaft and head for pressure trend
   int ax = x + 8;  // Arrow center x
   int ay = y;      // Arrow center y (lowered)
@@ -1305,10 +1322,7 @@ void addfog(int x, int y, int scale, int linesize, bool IconSize) {
 
 void Sunny(int x, int y, bool IconSize, String IconName) {
   int scale = Small, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
@@ -1320,38 +1334,18 @@ void Sunny(int x, int y, bool IconSize, String IconName) {
 
 void MostlySunny(int x, int y, bool IconSize, String IconName) {
   int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
   if (IconName.endsWith("n")) addmoon(x, y + Offset, scale, IconSize);
   addsun(x - scale * 1.8, y - scale * 1.8, scale, IconSize);
   addcloud(x, y, scale, linesize);
-}
-
-void MostlyCloudy(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
-    scale = Large;
-    Offset = 35;
-  }
-  if (IconName.endsWith("n")) addmoon(x, y + Offset, scale, IconSize);
-  addcloud(x, y, scale, linesize);
-  addsun(x - scale * 1.8, y - scale * 1.8, scale, IconSize);
 }
 
 void Cloudy(int x, int y, bool IconSize, String IconName) {
   int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
@@ -1363,39 +1357,18 @@ void Cloudy(int x, int y, bool IconSize, String IconName) {
 
 void Rain(int x, int y, bool IconSize, String IconName) {
   int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
   if (IconName.endsWith("n")) addmoon(x, y + Offset, scale, IconSize);
-  addcloud(x, y, scale, linesize);
-  addrain(x, y, scale, IconSize);
-}
-
-void ExpectRain(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
-    scale = Large;
-    Offset = 35;
-  }
-  if (IconName.endsWith("n")) addmoon(x, y + Offset, scale, IconSize);
-  addsun(x - scale * 1.8, y - scale * 1.8, scale, IconSize);
   addcloud(x, y, scale, linesize);
   addrain(x, y, scale, IconSize);
 }
 
 void ChanceRain(int x, int y, bool IconSize, String IconName) {
   int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
@@ -1407,10 +1380,7 @@ void ChanceRain(int x, int y, bool IconSize, String IconName) {
 
 void Tstorms(int x, int y, bool IconSize, String IconName) {
   int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
@@ -1421,10 +1391,7 @@ void Tstorms(int x, int y, bool IconSize, String IconName) {
 
 void Snow(int x, int y, bool IconSize, String IconName) {
   int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
@@ -1435,10 +1402,7 @@ void Snow(int x, int y, bool IconSize, String IconName) {
 
 void Fog(int x, int y, bool IconSize, String IconName) {
   int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
@@ -1449,10 +1413,7 @@ void Fog(int x, int y, bool IconSize, String IconName) {
 
 void Haze(int x, int y, bool IconSize, String IconName) {
   int scale = Small, linesize = 5, Offset = 10;
-  if (iconScaleOverride > 0) {
-    scale = iconScaleOverride;
-    Offset = 45;
-  } else if (IconSize == LargeIcon) {
+  if (IconSize == LargeIcon) {
     scale = Large;
     Offset = 35;
   }
