@@ -961,25 +961,30 @@ void DrawMoonFromAPI(int x, int y, int diameter, int illumination, String phase,
   // Convert illumination (0-100%) to phase (0.0-1.0)
   // Waxing: 0 -> 0.5 (new to full), Waning: 0.5 -> 1.0 (full to new)
   double Phase;
-  phase.toLowerCase();
+  String phaseLower = phase;
+  phaseLower.toLowerCase();
 
-  if (phase.indexOf("waxing") >= 0 || phase == "first quarter") {
-    // Waxing: illumination 0-100 maps to phase 0.0-0.5
-    Phase = (illumination / 100.0) * 0.5;
-  } else if (phase.indexOf("waning") >= 0 || phase == "last quarter") {
-    // Waning: illumination 100-0 maps to phase 0.5-1.0
-    Phase = 0.5 + ((100 - illumination) / 100.0) * 0.5;
-  } else if (phase == "full moon") {
-    Phase = 0.5;
+  if (phaseLower.indexOf("waxing") >= 0 || phaseLower.indexOf("first quarter") >= 0) {
+    // Waxing (lit on RIGHT in northern hemisphere): Phase > 0.5
+    Phase = 0.5 + (illumination / 100.0) * 0.5;
+  } else if (phaseLower.indexOf("waning") >= 0 || phaseLower.indexOf("last quarter") >= 0 || phaseLower.indexOf("third quarter") >= 0) {
+    // Waning (lit on LEFT in northern hemisphere): Phase < 0.5
+    Phase = 0.5 - (illumination / 100.0) * 0.5;
+  } else if (phaseLower.indexOf("full") >= 0) {
+    Phase = 0.0;  // Full moon = all lit
   } else {
-    // New moon
-    Phase = 0.0;
+    // New moon = all dark
+    Phase = 0.5;
   }
 
-  hemisphere.toLowerCase();
-  if (hemisphere == "south") Phase = 1 - Phase;
+  String hemiLower = hemisphere;
+  hemiLower.toLowerCase();
+  if (hemiLower == "south") Phase = 1 - Phase;
 
-  // Draw using existing moon drawing logic
+  // Draw dark part of moon first
+  fillCircle(x + diameter - 1, y + diameter, diameter / 2 + 1, DarkGrey);
+
+  // Draw light part using moon drawing logic
   const int number_of_lines = 90;
   for (double Ypos = 0; Ypos <= number_of_lines / 2; Ypos++) {
     double Xpos = sqrt(number_of_lines / 2 * number_of_lines / 2 - Ypos * Ypos);
@@ -1000,8 +1005,8 @@ void DrawMoonFromAPI(int x, int y, int diameter, int illumination, String phase,
     double pW3y = (Ypos + number_of_lines) / number_of_lines * diameter + y;
     double pW4x = (Xpos2 + number_of_lines) / number_of_lines * diameter + x;
     double pW4y = (Ypos + number_of_lines) / number_of_lines * diameter + y;
-    drawLine(pW1x, pW1y, pW2x, pW2y, LightGrey);
-    drawLine(pW3x, pW3y, pW4x, pW4y, LightGrey);
+    drawLine(pW1x, pW1y, pW2x, pW2y, White);
+    drawLine(pW3x, pW3y, pW4x, pW4y, White);
   }
   drawCircle(x + diameter - 1, y + diameter, diameter / 2, Black);
 }
