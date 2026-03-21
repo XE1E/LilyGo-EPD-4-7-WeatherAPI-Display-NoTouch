@@ -17,22 +17,22 @@ struct WiFiCredentials {
 };
 
 const WiFiCredentials wifiNetworks[] = {
-  {"TP-LINKv2", "rocio123"},
+  {"Your_WiFi_SSID", "Your_WiFi_Password"},
   // Add more networks below:
-  {"Totalplay-2.4G-3a80", "uYAMN6wLpkSwe4Cj"},
-  {"STARLINK-6G", "quique12"},
+  // {"Network2", "password2"},
+  // {"Network3", "password3"},
 };
 
 const int wifiNetworkCount = sizeof(wifiNetworks) / sizeof(wifiNetworks[0]);
 
 // WeatherAPI.com - Get free API key at https://www.weatherapi.com/
-String apikey       = "222dd797d9d14c8993f165243260703";
+String apikey       = "YOUR_WEATHERAPI_KEY";
 const char server[] = "api.weatherapi.com";
 
 //Set your location
-String City             = "Ciudad de Mexico";
-String Latitude         = "19.3803";
-String Longitude        = "-99.1746";
+String City             = "Your City";
+String Latitude         = "0.0000";
+String Longitude        = "0.0000";
 
 String Language         = "es";                                // WeatherAPI language codes: es, en, fr, de, etc.
 String Hemisphere       = "north";                             // or "south"
