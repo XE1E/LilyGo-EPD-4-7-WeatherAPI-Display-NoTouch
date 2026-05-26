@@ -40,8 +40,8 @@ jobs:
 
       - name: Prepare sketch folder
         run: |
-          mkdir -p ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display
-          cp -r ./* ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display/ 2>/dev/null || true
+          mkdir -p ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch
+          cp -r ./* ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/ 2>/dev/null || true
 
       - name: Compile firmware
         run: |
@@ -49,13 +49,13 @@ jobs:
             --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi \
             --output-dir ./build \
             --warnings none \
-            ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display
+            ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch
 
       - name: Rename firmware
         run: |
-          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display.ino.bin ./build/weather-station-notouch.bin
-          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display.ino.bootloader.bin ./build/bootloader.bin 2>/dev/null || true
-          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display.ino.partitions.bin ./build/partitions.bin 2>/dev/null || true
+          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch.ino.bin ./build/weather-station-notouch.bin
+          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch.ino.bootloader.bin ./build/bootloader.bin 2>/dev/null || true
+          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch.ino.partitions.bin ./build/partitions.bin 2>/dev/null || true
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
