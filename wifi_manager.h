@@ -1042,7 +1042,7 @@ void startAPMode() {
 
   webServer.begin();
   Serial.println("Web server started");
-  Serial.printf("Connect to WiFi: %s (password: %s)\n", AP_SSID, AP_PASSWORD)
+  Serial.printf("Connect to WiFi: %s (password: %s)\n", AP_SSID, AP_PASSWORD);
   Serial.println("Then open http://192.168.4.1 in your browser");
 }
 
