@@ -1,6 +1,6 @@
 {
   "name": "Weather Station NoTouch EPD 4.7",
-  "version": "ca2c9ce",
+  "version": "45e619a",
   "home_assistant_domain": "esphome",
   "funding_url": "https://github.com/XE1E/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch",
   "new_install_prompt_erase": true,
