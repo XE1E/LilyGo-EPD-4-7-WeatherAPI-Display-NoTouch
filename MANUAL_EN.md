@@ -197,7 +197,7 @@ WeatherAPI provides all data in a single call:
 | Upload Mode | UART0/Hardware CDC |
 | USB Mode | Hardware CDC and JTAG |
 
-### 4.4 Upload Firmware
+### 4.4 Upload Firmware (USB)
 
 1. Connect device via USB
 2. Select correct COM port
@@ -209,6 +209,56 @@ WeatherAPI provides all data in a single call:
 3. Release RST
 4. Release BOOT
 5. Try uploading again
+
+### 4.5 OTA Updates (Over-The-Air)
+
+Firmware can be updated wirelessly without a USB cable.
+
+#### Method 1: Web OTA (Recommended)
+
+Update from browser while device is connected to WiFi:
+
+1. Connect to the same WiFi network as the device
+2. Open in browser: `http://[DEVICE_IP]/ota`
+3. Drag the `.bin` file or click to select
+4. Click "Update Firmware"
+5. Wait for completion (do not disconnect during process)
+6. Device will restart automatically
+
+**Note**: Device IP is shown on the info screen.
+
+#### Method 2: Arduino OTA
+
+Update directly from Arduino IDE over WiFi:
+
+1. Ensure device and PC are on the same network
+2. In Arduino IDE: `Tools` → `Port`
+3. Select "WeatherStation-NoTouch at [IP]" (appears as network port)
+4. Click Upload as usual
+
+**Requirements**:
+- Device powered on and connected to WiFi
+- PC on same local network
+- Arduino IDE with ESP32 support
+
+#### Method 3: Web Flasher (GitHub)
+
+Flash from browser without installing anything:
+
+1. Visit: `https://xe1e.github.io/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/`
+2. Connect device via USB
+3. Click "Install Firmware"
+4. Select serial port
+5. Wait for installation to complete
+
+**Requirements**:
+- Chrome, Edge or Opera browser (requires Web Serial API)
+- USB cable connected to device
+
+#### Download Firmware
+
+Compiled .bin files are available at:
+`https://github.com/XE1E/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/releases`
 
 ---
 
