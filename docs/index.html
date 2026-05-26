@@ -120,7 +120,7 @@
 
   <script>
     const traducciones = {
-      'No port selected': 'No se selecciono puerto',
+      'No port selected': 'Puerto no seleccionado',
       'Failed to initialize': 'Error al inicializar',
       'Failed to connect': 'Error al conectar',
       'Installation failed': 'Instalacion fallida',
@@ -134,14 +134,14 @@
       'Install': 'Instalar',
       'Close': 'Cerrar',
       'Retry': 'Reintentar',
-      'Cancel': 'Cancelar',
+      'Cancel': 'Anular',
       'OK': 'Aceptar',
       'Error': 'Error',
       'Select port': 'Seleccionar puerto',
       'Connecting': 'Conectando',
       'Connected': 'Conectado',
-      'Logs & Console': 'Registros y Consola',
-      'Reset Device': 'Reiniciar Dispositivo',
+      'Logs & Console': 'Registros',
+      'Reset Device': 'Reiniciar',
       'Back': 'Atras',
       'Next': 'Siguiente',
       'Skip': 'Omitir',
@@ -150,70 +150,47 @@
       'LOGS & CONSOLE': 'REGISTROS',
       'BACK': 'ATRAS',
       'NEXT': 'SIGUIENTE',
-      'RETRY': 'REINTENTAR'
+      'RETRY': 'REINTENTAR',
+      'CANCEL': 'ANULAR'
     };
 
+    // Set de valores ya traducidos para no re-traducir
+    const yaTraducido = new Set(Object.values(traducciones));
+
     function traducir(texto) {
-      if (!texto || typeof texto !== 'string') return texto;
+      if (!texto || typeof texto !== 'string') return null;
       const t = texto.trim();
+      // Si ya esta traducido, no hacer nada
+      if (yaTraducido.has(t)) return null;
+      // Buscar traduccion exacta
       if (traducciones[t]) return traducciones[t];
-      let r = texto;
-      Object.entries(traducciones).forEach(([en, es]) => {
-        r = r.split(en).join(es);
-      });
-      return r;
+      return null;
     }
 
     function buscarYTraducir(root) {
       if (!root) return;
-
-      // Usar TreeWalker para encontrar todos los nodos de texto
-      const walker = document.createTreeWalker(
-        root,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-      );
-
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
       let node;
       while (node = walker.nextNode()) {
-        const original = node.textContent;
-        const traducido = traducir(original);
-        if (traducido !== original) {
-          node.textContent = traducido;
-        }
+        const traducido = traducir(node.textContent);
+        if (traducido) node.textContent = traducido;
       }
-
-      // Buscar elementos con shadowRoot
       if (root.querySelectorAll) {
         root.querySelectorAll('*').forEach(el => {
-          if (el.shadowRoot) {
-            buscarYTraducir(el.shadowRoot);
-          }
+          if (el.shadowRoot) buscarYTraducir(el.shadowRoot);
         });
       }
     }
 
-    function escanearTodo() {
-      // Documento principal
+    function escanear() {
       buscarYTraducir(document.body);
-
-      // Todos los shadow roots
       document.querySelectorAll('*').forEach(el => {
-        if (el.shadowRoot) {
-          buscarYTraducir(el.shadowRoot);
-        }
+        if (el.shadowRoot) buscarYTraducir(el.shadowRoot);
       });
     }
 
-    // Escanear frecuentemente
-    setInterval(escanearTodo, 100);
-
-    // Observer para nuevos elementos
-    new MutationObserver(() => escanearTodo()).observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+    setInterval(escanear, 150);
+    new MutationObserver(() => setTimeout(escanear, 20)).observe(document.body, { childList: true, subtree: true });
   </script>
 </body>
 </html>
