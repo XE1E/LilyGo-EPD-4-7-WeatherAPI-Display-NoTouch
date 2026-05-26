@@ -119,78 +119,74 @@
   </div>
 
   <script>
-    const traducciones = {
+    const T = {
       'No port selected': 'Puerto no seleccionado',
       'Failed to initialize': 'Error al inicializar',
       'Failed to connect': 'Error al conectar',
       'Installation failed': 'Instalacion fallida',
       'Installation complete!': 'Instalacion completada!',
-      'Installation complete': 'Instalacion completada',
       'Preparing installation': 'Preparando instalacion',
       'Erasing': 'Borrando',
-      'Writing': 'Escribiendo',
-      'Finished': 'Finalizado',
-      'Connect': 'Conectar',
-      'Install': 'Instalar',
-      'Close': 'Cerrar',
-      'Retry': 'Reintentar',
-      'Cancel': 'Anular',
-      'OK': 'Aceptar',
-      'Error': 'Error',
-      'Select port': 'Seleccionar puerto',
+      'Installing': 'Instalando',
+      'Wrapping up': 'Finalizando',
       'Connecting': 'Conectando',
-      'Connected': 'Conectado',
+      'Connect': 'Conectar',
+      'Close': 'Cerrar',
+      'Cancel': 'Anular',
+      'Try Again': 'Reintentar',
+      'Next': 'Siguiente',
+      'Back': 'Atras',
+      'Skip': 'Omitir',
       'Logs & Console': 'Registros',
       'Reset Device': 'Reiniciar',
-      'Back': 'Atras',
-      'Next': 'Siguiente',
-      'Skip': 'Omitir',
-      'INSTALL': 'INSTALAR',
-      'CLOSE': 'CERRAR',
-      'LOGS & CONSOLE': 'REGISTROS',
-      'BACK': 'ATRAS',
-      'NEXT': 'SIGUIENTE',
-      'RETRY': 'REINTENTAR',
-      'CANCEL': 'ANULAR'
+      'Download Logs': 'Descargar',
+      'Confirm Installation': 'Confirmar',
+      'Erase device': 'Borrar dispositivo',
+      'This will take': 'Esto tomara',
+      'a minute': 'un minuto',
+      '2 minutes': '2 minutos',
+      'Keep this page visible to prevent slow down': 'Mantener esta pagina visible'
     };
+    const done = new Set(Object.values(T));
 
-    // Set de valores ya traducidos para no re-traducir
-    const yaTraducido = new Set(Object.values(traducciones));
-
-    function traducir(texto) {
-      if (!texto || typeof texto !== 'string') return null;
-      const t = texto.trim();
-      // Si ya esta traducido, no hacer nada
-      if (yaTraducido.has(t)) return null;
-      // Buscar traduccion exacta
-      if (traducciones[t]) return traducciones[t];
-      return null;
+    function tr(s) {
+      if (!s) return null;
+      const t = s.trim();
+      if (done.has(t) || !T[t]) return null;
+      return T[t];
     }
 
-    function buscarYTraducir(root) {
+    function scan(root) {
       if (!root) return;
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
-      let node;
-      while (node = walker.nextNode()) {
-        const traducido = traducir(node.textContent);
-        if (traducido) node.textContent = traducido;
-      }
-      if (root.querySelectorAll) {
-        root.querySelectorAll('*').forEach(el => {
-          if (el.shadowRoot) buscarYTraducir(el.shadowRoot);
+      try {
+        const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let n;
+        while (n = walk.nextNode()) {
+          const r = tr(n.textContent);
+          if (r) n.textContent = r;
+        }
+        const els = root.querySelectorAll ? root.querySelectorAll('*') : [];
+        els.forEach(e => {
+          if (e.shadowRoot) scan(e.shadowRoot);
         });
-      }
+      } catch(e) {}
     }
 
-    function escanear() {
-      buscarYTraducir(document.body);
-      document.querySelectorAll('*').forEach(el => {
-        if (el.shadowRoot) buscarYTraducir(el.shadowRoot);
+    function scanAll() {
+      scan(document.body);
+      // Buscar dialogos de esp-web-tools directamente
+      document.querySelectorAll('ewt-install-dialog, ewt-no-port-picked-dialog, esp-web-install-button').forEach(e => {
+        if (e.shadowRoot) scan(e.shadowRoot);
+      });
+      // Buscar cualquier elemento con shadow
+      document.querySelectorAll('*').forEach(e => {
+        if (e.shadowRoot) scan(e.shadowRoot);
       });
     }
 
-    setInterval(escanear, 150);
-    new MutationObserver(() => setTimeout(escanear, 20)).observe(document.body, { childList: true, subtree: true });
+    setInterval(scanAll, 100);
+    new MutationObserver(scanAll).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(scanAll).observe(document.documentElement, { childList: true, subtree: true });
   </script>
 </body>
 </html>
