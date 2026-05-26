@@ -4,14 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Weather Station NoTouch - Web Flasher</title>
-    <script>
-    // Forzar shadow DOM abierto para poder traducir
-    const originalAttachShadow = Element.prototype.attachShadow;
-    Element.prototype.attachShadow = function(init) {
-      return originalAttachShadow.call(this, { ...init, mode: 'open' });
-    };
-  </script>
-  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --primary: #3b82f6; --bg: #0f172a; --bg-card: #1e293b; --text: #f1f5f9; --text-muted: #94a3b8; }
@@ -76,7 +69,7 @@
         </div>
       </div>
 
-      <div class="warning">Requiere Chrome, Edge u Opera con Web Serial API</div>
+      <div class="warning">Requiere Chrome, Edge u Opera. Los mensajes del instalador estan en ingles.</div>
 
       <esp-web-install-button manifest="manifest.json">
         <button slot="activate">Instalar Firmware</button>
@@ -117,76 +110,5 @@
       </div>
     </div>
   </div>
-
-  <script>
-    const T = {
-      'No port selected': 'Puerto no seleccionado',
-      'Failed to initialize': 'Error al inicializar',
-      'Failed to connect': 'Error al conectar',
-      'Installation failed': 'Instalacion fallida',
-      'Installation complete!': 'Instalacion completada!',
-      'Preparing installation': 'Preparando instalacion',
-      'Erasing': 'Borrando',
-      'Installing': 'Instalando',
-      'Wrapping up': 'Finalizando',
-      'Connecting': 'Conectando',
-      'Connect': 'Conectar',
-      'Close': 'Cerrar',
-      'Cancel': 'Anular',
-      'Try Again': 'Reintentar',
-      'Next': 'Siguiente',
-      'Back': 'Atras',
-      'Skip': 'Omitir',
-      'Logs & Console': 'Registros',
-      'Reset Device': 'Reiniciar',
-      'Download Logs': 'Descargar',
-      'Confirm Installation': 'Confirmar',
-      'Erase device': 'Borrar dispositivo',
-      'This will take': 'Esto tomara',
-      'a minute': 'un minuto',
-      '2 minutes': '2 minutos',
-      'Keep this page visible to prevent slow down': 'Mantener esta pagina visible'
-    };
-    const done = new Set(Object.values(T));
-
-    function tr(s) {
-      if (!s) return null;
-      const t = s.trim();
-      if (done.has(t) || !T[t]) return null;
-      return T[t];
-    }
-
-    function scan(root) {
-      if (!root) return;
-      try {
-        const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-        let n;
-        while (n = walk.nextNode()) {
-          const r = tr(n.textContent);
-          if (r) n.textContent = r;
-        }
-        const els = root.querySelectorAll ? root.querySelectorAll('*') : [];
-        els.forEach(e => {
-          if (e.shadowRoot) scan(e.shadowRoot);
-        });
-      } catch(e) {}
-    }
-
-    function scanAll() {
-      scan(document.body);
-      // Buscar dialogos de esp-web-tools directamente
-      document.querySelectorAll('ewt-install-dialog, ewt-no-port-picked-dialog, esp-web-install-button').forEach(e => {
-        if (e.shadowRoot) scan(e.shadowRoot);
-      });
-      // Buscar cualquier elemento con shadow
-      document.querySelectorAll('*').forEach(e => {
-        if (e.shadowRoot) scan(e.shadowRoot);
-      });
-    }
-
-    setInterval(scanAll, 100);
-    new MutationObserver(scanAll).observe(document.body, { childList: true, subtree: true });
-    new MutationObserver(scanAll).observe(document.documentElement, { childList: true, subtree: true });
-  </script>
 </body>
 </html>
