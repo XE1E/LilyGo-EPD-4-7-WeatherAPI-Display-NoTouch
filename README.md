@@ -26,7 +26,23 @@ Estacion meteorologica ESP32-S3 usando la pantalla e-paper LilyGo T5 4.7". Obtie
 
 ## Inicio Rapido
 
-### Configuracion Arduino IDE
+### Instalar Firmware
+
+#### Opcion Recomendada: Web Flasher (sin instalar nada)
+
+> **La forma mas facil de instalar.** Solo necesitas un navegador y cable USB.
+
+[![Instalar Firmware](https://img.shields.io/badge/🚀_INSTALAR_FIRMWARE-blue?style=for-the-badge&logo=esphome)](https://xe1e.github.io/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/)
+
+1. Conectar dispositivo via cable USB-C
+2. Abrir el link en **Chrome, Edge u Opera**
+3. Click en "Instalar Firmware" y seleccionar puerto COM
+4. Esperar ~1 minuto a que termine
+
+#### Opcion Alternativa: Arduino IDE (para desarrolladores)
+
+<details>
+<summary>Click para ver configuracion Arduino IDE</summary>
 
 | Configuracion | Valor |
 |---------------|-------|
@@ -37,7 +53,7 @@ Estacion meteorologica ESP32-S3 usando la pantalla e-paper LilyGo T5 4.7". Obtie
 | PSRAM | OPI PSRAM |
 | Upload Mode | UART0/Hardware CDC |
 
-### Librerias Requeridas
+**Librerias Requeridas:**
 
 | Libreria | Version | Fuente |
 |----------|---------|--------|
@@ -47,11 +63,7 @@ Estacion meteorologica ESP32-S3 usando la pantalla e-paper LilyGo T5 4.7". Obtie
 
 **Importante:** Solo instalar EPD47-master y ArduinoJson en la carpeta de librerias para evitar conflictos.
 
-**Alternativa: Instalar via Web (sin Arduino IDE)**
-
-[![Instalar Firmware](https://img.shields.io/badge/Instalar-Firmware-blue?style=for-the-badge)](https://xe1e.github.io/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/)
-
-Usar navegador Chrome, Edge u Opera y conectar dispositivo via USB.
+</details>
 
 ### Actualizaciones de Firmware (OTA)
 

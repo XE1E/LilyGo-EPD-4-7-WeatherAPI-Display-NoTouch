@@ -22,6 +22,18 @@
     esp-web-install-button::part(button) { font-size: 1.1rem; padding: 16px 48px; border-radius: 12px; font-weight: 600; background: var(--primary); color: white; border: none; cursor: pointer; }
     esp-web-install-button::part(button):hover { background: #2563eb; }
     .warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 12px; border-radius: 8px; margin-bottom: 24px; font-size: 0.85rem; }
+    .requirements { margin-top: 24px; padding-top: 20px; border-top: 1px solid #334155; }
+    .requirements h3 { font-size: 1rem; margin-bottom: 12px; color: var(--text-muted); }
+    .requirements ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .requirements li { background: #334155; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; }
+    .instructions, .troubleshoot { margin-top: 24px; padding: 20px; background: rgba(59, 130, 246, 0.08); border-radius: 12px; text-align: left; }
+    .instructions h3, .troubleshoot h3 { font-size: 1rem; margin-bottom: 12px; color: var(--primary); }
+    .instructions ol { padding-left: 20px; color: var(--text-muted); }
+    .instructions li { margin-bottom: 8px; font-size: 0.9rem; }
+    .troubleshoot { background: rgba(245, 158, 11, 0.08); }
+    .troubleshoot h3 { color: #fbbf24; }
+    .troubleshoot ul { list-style: none; color: var(--text-muted); }
+    .troubleshoot li { margin-bottom: 8px; font-size: 0.85rem; padding-left: 8px; border-left: 2px solid #fbbf2444; }
     .help { margin-top: 24px; font-size: 0.85rem; color: var(--text-muted); }
     .help a { color: var(--primary); text-decoration: none; }
     @media (max-width: 500px) { .features { grid-template-columns: 1fr; } .card { padding: 24px; } }
@@ -63,6 +75,35 @@
         <button slot="activate">Instalar Firmware</button>
         <span slot="unsupported">Tu navegador no soporta Web Serial. Usa Chrome, Edge u Opera.</span>
       </esp-web-install-button>
+
+      <div class="requirements">
+        <h3>Requisitos del hardware</h3>
+        <ul>
+          <li>LilyGo T5 4.7" S3</li>
+          <li>ESP32-S3</li>
+          <li>Cable USB-C</li>
+        </ul>
+      </div>
+
+      <div class="instructions">
+        <h3>Como instalar</h3>
+        <ol>
+          <li><strong>Conecta</strong> el dispositivo via cable USB-C a tu computadora</li>
+          <li><strong>Haz clic</strong> en "Instalar Firmware" arriba</li>
+          <li><strong>Selecciona</strong> el puerto COM (ej: COM3, /dev/ttyUSB0)</li>
+          <li><strong>Espera</strong> a que termine la instalacion (~1 min)</li>
+          <li><strong>Configura</strong> conectandote a WiFi "WeatherStation-Setup"</li>
+        </ol>
+      </div>
+
+      <div class="troubleshoot">
+        <h3>Solucion de problemas</h3>
+        <ul>
+          <li><strong>"No port selected"</strong> = No seleccionaste puerto. Reconecta el cable y reintenta.</li>
+          <li><strong>No aparece puerto</strong> = Instala drivers CH340/CP2102 o usa otro cable USB.</li>
+          <li><strong>Falla la conexion</strong> = Entra en modo bootloader: manten BOOT, presiona RST, suelta RST, suelta BOOT.</li>
+        </ul>
+      </div>
 
       <div class="help">
         <p><a href="https://github.com/XE1E/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch" target="_blank">Ver repositorio en GitHub</a></p>
