@@ -112,12 +112,12 @@
   </div>
 
   <script>
-    // Traducir mensajes de esp-web-tools al español
     const traducciones = {
       'No port selected': 'No se selecciono puerto',
       'Failed to initialize': 'Error al inicializar',
       'Failed to connect': 'Error al conectar',
       'Installation failed': 'Instalacion fallida',
+      'Installation complete!': 'Instalacion completada!',
       'Installation complete': 'Instalacion completada',
       'Preparing installation': 'Preparando instalacion',
       'Erasing': 'Borrando',
@@ -137,72 +137,76 @@
       'Reset Device': 'Reiniciar Dispositivo',
       'Back': 'Atras',
       'Next': 'Siguiente',
-      'Skip': 'Omitir'
+      'Skip': 'Omitir',
+      'INSTALL': 'INSTALAR',
+      'CLOSE': 'CERRAR',
+      'LOGS & CONSOLE': 'REGISTROS',
+      'BACK': 'ATRAS',
+      'NEXT': 'SIGUIENTE',
+      'RETRY': 'REINTENTAR'
     };
 
-    function traducirTexto(texto) {
-      if (!texto) return texto;
-      let resultado = texto.trim();
-      for (const [en, es] of Object.entries(traducciones)) {
-        if (resultado === en) return es;
-        resultado = resultado.replace(new RegExp('\\b' + en + '\\b', 'g'), es);
-      }
-      return resultado;
+    function traducir(texto) {
+      if (!texto || typeof texto !== 'string') return texto;
+      const t = texto.trim();
+      if (traducciones[t]) return traducciones[t];
+      let r = texto;
+      Object.entries(traducciones).forEach(([en, es]) => {
+        r = r.split(en).join(es);
+      });
+      return r;
     }
 
-    function traducirNodo(node) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const texto = node.textContent;
-        const traducido = traducirTexto(texto);
-        if (traducido !== texto) {
+    function buscarYTraducir(root) {
+      if (!root) return;
+
+      // Usar TreeWalker para encontrar todos los nodos de texto
+      const walker = document.createTreeWalker(
+        root,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+
+      let node;
+      while (node = walker.nextNode()) {
+        const original = node.textContent;
+        const traducido = traducir(original);
+        if (traducido !== original) {
           node.textContent = traducido;
         }
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        // Traducir shadowRoot si existe
-        if (node.shadowRoot) {
-          traducirShadowRoot(node.shadowRoot);
-        }
-        // Traducir hijos
-        node.childNodes.forEach(child => traducirNodo(child));
+      }
+
+      // Buscar elementos con shadowRoot
+      if (root.querySelectorAll) {
+        root.querySelectorAll('*').forEach(el => {
+          if (el.shadowRoot) {
+            buscarYTraducir(el.shadowRoot);
+          }
+        });
       }
     }
 
-    function traducirShadowRoot(shadowRoot) {
-      if (!shadowRoot) return;
-      shadowRoot.querySelectorAll('*').forEach(el => {
-        el.childNodes.forEach(child => {
-          if (child.nodeType === Node.TEXT_NODE) {
-            const texto = child.textContent;
-            const traducido = traducirTexto(texto);
-            if (traducido !== texto) {
-              child.textContent = traducido;
-            }
-          }
-        });
-        // Recursivamente buscar mas shadowRoots
-        if (el.shadowRoot) {
-          traducirShadowRoot(el.shadowRoot);
-        }
-      });
-    }
+    function escanearTodo() {
+      // Documento principal
+      buscarYTraducir(document.body);
 
-    function escanearYTraducir() {
-      // Buscar todos los elementos con shadowRoot
+      // Todos los shadow roots
       document.querySelectorAll('*').forEach(el => {
         if (el.shadowRoot) {
-          traducirShadowRoot(el.shadowRoot);
+          buscarYTraducir(el.shadowRoot);
         }
       });
     }
 
-    // Escanear periodicamente (esp-web-tools crea dialogos dinamicamente)
-    setInterval(escanearYTraducir, 200);
+    // Escanear frecuentemente
+    setInterval(escanearTodo, 100);
 
-    // Tambien observar cambios en el DOM
-    const observer = new MutationObserver(() => {
-      setTimeout(escanearYTraducir, 50);
+    // Observer para nuevos elementos
+    new MutationObserver(() => escanearTodo()).observe(document.body, {
+      childList: true,
+      subtree: true
     });
-    observer.observe(document.body, { childList: true, subtree: true });
   </script>
 </body>
 </html>
