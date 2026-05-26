@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Weather Station NoTouch - Web Flasher</title>
+    <script>
+    // Forzar shadow DOM abierto para poder traducir
+    const originalAttachShadow = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function(init) {
+      return originalAttachShadow.call(this, { ...init, mode: 'open' });
+    };
+  </script>
   <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
