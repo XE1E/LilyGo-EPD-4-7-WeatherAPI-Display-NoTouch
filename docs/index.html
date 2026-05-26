@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Station NoTouch - Web Flasher</title>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --primary: #3b82f6; --bg: #0f172a; --bg-card: #1e293b; --text: #f1f5f9; --text-muted: #94a3b8; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .container { max-width: 600px; width: 100%; }
+    .card { background: var(--bg-card); border-radius: 16px; padding: 40px; text-align: center; }
+    h1 { font-size: 2rem; margin-bottom: 8px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .subtitle { color: var(--text-muted); margin-bottom: 32px; }
+    .badge { display: inline-block; background: #10b981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; margin-bottom: 16px; }
+    .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 32px; text-align: left; }
+    .feature { background: rgba(59, 130, 246, 0.1); padding: 16px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2); }
+    .feature-icon { font-size: 24px; margin-bottom: 8px; }
+    .feature-title { font-weight: 600; margin-bottom: 4px; }
+    .feature-desc { font-size: 0.85rem; color: var(--text-muted); }
+    esp-web-install-button::part(button) { font-size: 1.1rem; padding: 16px 48px; border-radius: 12px; font-weight: 600; background: var(--primary); color: white; border: none; cursor: pointer; }
+    esp-web-install-button::part(button):hover { background: #2563eb; }
+    .warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 12px; border-radius: 8px; margin-bottom: 24px; font-size: 0.85rem; }
+    .help { margin-top: 24px; font-size: 0.85rem; color: var(--text-muted); }
+    .help a { color: var(--primary); text-decoration: none; }
+    @media (max-width: 500px) { .features { grid-template-columns: 1fr; } .card { padding: 24px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <span class="badge">NoTouch Version</span>
+      <h1>Weather Station</h1>
+      <p class="subtitle">LilyGo EPD 4.7" E-Paper Display</p>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🌤️</div>
+          <div class="feature-title">WeatherAPI</div>
+          <div class="feature-desc">Datos meteorologicos en tiempo real</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">📊</div>
+          <div class="feature-title">Graficas</div>
+          <div class="feature-desc">Temperatura, presion, humedad</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">📡</div>
+          <div class="feature-title">Multi-WiFi</div>
+          <div class="feature-desc">Soporte para 3 redes WiFi</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🔋</div>
+          <div class="feature-title">Deep Sleep</div>
+          <div class="feature-desc">Optimizado para bateria</div>
+        </div>
+      </div>
+
+      <div class="warning">Requiere Chrome, Edge u Opera con Web Serial API</div>
+
+      <esp-web-install-button manifest="manifest.json">
+        <button slot="activate">Instalar Firmware</button>
+        <span slot="unsupported">Tu navegador no soporta Web Serial. Usa Chrome, Edge u Opera.</span>
+      </esp-web-install-button>
+
+      <div class="help">
+        <p><a href="https://github.com/XE1E/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch" target="_blank">Ver repositorio en GitHub</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -41,6 +41,7 @@
 
 #include <WiFi.h>               // In-built
 #include <WiFiClientSecure.h>   // In-built - for HTTPS
+#include <ArduinoOTA.h>         // In-built - for OTA updates
 #include <time.h>               // In-built
 
 #include "owm_credentials.h"
@@ -55,7 +56,7 @@
 #define SCREEN_HEIGHT  EPD_HEIGHT
 
 //################  VERSION  ##################################################
-String version = "1.0-WeatherAPI / 4.7in";  // Programme version - WeatherAPI (uses weatherapi.com)
+String version = "2.8 / 4.7in";  // Programme version - WeatherAPI with OTA
 //################ VARIABLES ##################################################
 
 enum alignment {LEFT, RIGHT, CENTER};
@@ -163,6 +164,27 @@ void BeginSleep() {
   Serial.println("Entering " + String(SleepTimer) + " (secs) of sleep time");
   Serial.println("Starting deep-sleep period...");
   esp_deep_sleep_start();  // Sleep for e.g. 30 minutes
+}
+
+void setupArduinoOTA() {
+  ArduinoOTA.setHostname("WeatherStation-NoTouch");
+  ArduinoOTA.onStart([]() {
+    Serial.println("OTA Start: " + String(ArduinoOTA.getCommand() == U_FLASH ? "sketch" : "filesystem"));
+  });
+  ArduinoOTA.onEnd([]() { Serial.println("\nOTA End - Rebooting..."); });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("OTA Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("OTA Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
+  Serial.println("ArduinoOTA ready. Hostname: WeatherStation-NoTouch");
 }
 
 boolean SetupTime() {
@@ -295,6 +317,9 @@ void InitialiseSystem() {
 }
 
 void loop() {
+  // Handle OTA updates
+  ArduinoOTA.handle();
+
   // Handle AP mode web server
   if (inAPMode) {
     handleAPMode();
@@ -472,11 +497,13 @@ void setup() {
     apModeStartTime = millis();
     displayAPModeScreen();
     startAPMode();
+    setupArduinoOTA();  // Enable OTA in AP mode
     return;  // Stay in loop() for AP mode handling
   }
 
   // Try to connect to WiFi
   if (StartWiFi() == WL_CONNECTED && SetupTime() == true) {
+    setupArduinoOTA();  // Enable OTA while connected
     bool WakeUp = false;
     if (WakeupHour > SleepHour)
       WakeUp = (CurrentHour >= WakeupHour || CurrentHour < SleepHour);

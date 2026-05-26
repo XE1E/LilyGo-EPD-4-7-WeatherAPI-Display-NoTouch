@@ -1,0 +1,103 @@
+name: Build and Release Firmware
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@2.0.17
+
+      - name: Install libraries
+        run: |
+          arduino-cli lib install "ArduinoJson@6.19.0"
+          mkdir -p ~/Arduino/libraries
+          curl -L https://github.com/DFRobotdl/EPD47/archive/refs/heads/master.zip -o /tmp/epd47.zip
+          unzip /tmp/epd47.zip -d ~/Arduino/libraries/
+
+      - name: Prepare sketch folder
+        run: |
+          mkdir -p ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display
+          cp -r ./* ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display/ 2>/dev/null || true
+
+      - name: Compile firmware
+        run: |
+          arduino-cli compile \
+            --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi \
+            --output-dir ./build \
+            --warnings none \
+            ~/Arduino/LilyGo-EPD-4-7-WeatherAPI-Display
+
+      - name: Rename firmware
+        run: |
+          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display.ino.bin ./build/weather-station-notouch.bin
+          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display.ino.bootloader.bin ./build/bootloader.bin 2>/dev/null || true
+          mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display.ino.partitions.bin ./build/partitions.bin 2>/dev/null || true
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            ./build/weather-station-notouch.bin
+            ./build/bootloader.bin
+            ./build/partitions.bin
+          if-no-files-found: error
+
+      - name: Copy firmware to docs for web flasher
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        run: |
+          mkdir -p docs/firmware
+          cp ./build/weather-station-notouch.bin docs/firmware/
+          cp ./build/bootloader.bin docs/firmware/ 2>/dev/null || true
+          cp ./build/partitions.bin docs/firmware/ 2>/dev/null || true
+
+      - name: Update manifest version
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION=$(git describe --tags --always)
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" docs/manifest.json
+
+      - name: Commit firmware to docs folder
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          git diff --staged --quiet || git commit -m "Update firmware binaries [skip ci]"
+          git push
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./build/weather-station-notouch.bin
+            ./build/bootloader.bin
+            ./build/partitions.bin
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

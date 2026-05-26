@@ -43,6 +43,21 @@ ESP32-S3 weather station using the LilyGo T5 4.7" e-paper display. Fetches weath
 
 **Important:** Only install EPD47-master and ArduinoJson in the libraries folder to avoid conflicts.
 
+**Alternative: Install via Web (no Arduino IDE needed)**
+
+[![Install Firmware](https://img.shields.io/badge/Install-Firmware-blue?style=for-the-badge)](https://xe1e.github.io/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/)
+
+Use Chrome, Edge or Opera browser and connect device via USB.
+
+### Firmware Updates (OTA)
+
+| Method | URL / How to use |
+|--------|------------------|
+| **Web OTA** | `http://[DEVICE_IP]/ota` - Upload .bin from browser |
+| **Arduino OTA** | Select "WeatherStation-NoTouch" network port in Arduino IDE |
+| **Web Flasher** | [xe1e.github.io/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch](https://xe1e.github.io/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/) |
+| **Releases** | [Download .bin files](https://github.com/XE1E/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/releases) |
+
 ### First Boot Configuration
 
 1. Upload the sketch to your device

@@ -6,6 +6,7 @@
 #include <Preferences.h>
 #include <DNSServer.h>
 #include <SD.h>
+#include <Update.h>           // OTA firmware updates via web
 
 // AP Mode Configuration
 const char* AP_SSID = "WeatherStation-Setup";
@@ -507,6 +508,181 @@ const char REBOOT_PAGE[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
+// OTA Update page - firmware upload via web interface
+const char OTA_PAGE[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firmware Update</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --success: #10b981;
+      --danger: #ef4444;
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container { max-width: 500px; width: 100%; }
+    .card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+    }
+    h1 { color: var(--primary); font-size: 1.75rem; margin-bottom: 8px; }
+    .version { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .upload-area {
+      border: 2px dashed #475569;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 20px;
+      transition: all 0.3s;
+    }
+    .upload-area:hover { border-color: var(--primary); background: rgba(59, 130, 246, 0.1); }
+    .upload-icon { font-size: 48px; margin-bottom: 12px; }
+    input[type="file"] { display: none; }
+    .btn {
+      display: inline-block;
+      padding: 12px 32px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-primary:disabled { background: #475569; cursor: not-allowed; }
+    .btn-secondary { background: transparent; color: var(--text-muted); border: 1px solid #475569; margin-top: 12px; }
+    .progress { display: none; margin-top: 20px; }
+    .progress-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+    .progress-text { margin-top: 8px; color: var(--text-muted); font-size: 0.9rem; }
+    .status { margin-top: 16px; padding: 12px; border-radius: 8px; display: none; }
+    .status.success { display: block; background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .status.error { display: block; background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    .file-info { color: var(--text-muted); font-size: 0.9rem; margin-top: 8px; }
+    .warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Firmware Update</h1>
+      <p class="version">Version actual: %VERSION%</p>
+      <div class="warning">No desconectes el dispositivo durante la actualizacion</div>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <div class="upload-area" id="dropZone">
+          <div class="upload-icon">📦</div>
+          <p>Arrastra el archivo .bin aqui</p>
+          <p class="file-info">o haz clic para seleccionar</p>
+          <input type="file" id="firmware" name="firmware" accept=".bin">
+        </div>
+        <p id="fileName" class="file-info"></p>
+        <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>Actualizar Firmware</button>
+      </form>
+      <div class="progress" id="progress">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <p class="progress-text" id="progressText">Subiendo... 0%</p>
+      </div>
+      <div class="status" id="status"></div>
+      <a href="/" class="btn btn-secondary">Volver</a>
+    </div>
+  </div>
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('firmware');
+    const fileName = document.getElementById('fileName');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadForm = document.getElementById('uploadForm');
+    const progress = document.getElementById('progress');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const status = document.getElementById('status');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#3b82f6'; });
+    dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#475569');
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.style.borderColor = '#475569'; if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; updateFileName(); } });
+    fileInput.addEventListener('change', updateFileName);
+    function updateFileName() { if (fileInput.files.length) { fileName.textContent = fileInput.files[0].name + ' (' + (fileInput.files[0].size / 1024).toFixed(1) + ' KB)'; uploadBtn.disabled = false; } }
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!fileInput.files.length) return;
+      const formData = new FormData();
+      formData.append('firmware', fileInput.files[0]);
+      uploadBtn.disabled = true;
+      progress.style.display = 'block';
+      status.className = 'status';
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/update', true);
+      xhr.upload.onprogress = (e) => { if (e.lengthComputable) { const pct = Math.round((e.loaded / e.total) * 100); progressFill.style.width = pct + '%'; progressText.textContent = 'Subiendo... ' + pct + '%'; } };
+      xhr.onload = () => { if (xhr.status === 200) { progressText.textContent = 'Reiniciando...'; status.className = 'status success'; status.textContent = 'Actualizacion exitosa. Reiniciando...'; setTimeout(() => location.href = '/', 5000); } else { status.className = 'status error'; status.textContent = 'Error: ' + xhr.responseText; uploadBtn.disabled = false; } };
+      xhr.onerror = () => { status.className = 'status error'; status.textContent = 'Error de conexion'; uploadBtn.disabled = false; };
+      xhr.send(formData);
+    });
+  </script>
+</body>
+</html>
+)rawliteral";
+
+// OTA update state
+bool otaInProgress = false;
+
+// Handle OTA page
+void handleOTA() {
+  lastWebRequestTime = millis();
+  extern String version;
+  String html = String(OTA_PAGE);
+  html.replace("%VERSION%", version);
+  webServer.send(200, "text/html", html);
+}
+
+// Handle firmware upload
+void handleOTAUpload() {
+  HTTPUpload& upload = webServer.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    Serial.printf("OTA Update Start: %s\n", upload.filename.c_str());
+    otaInProgress = true;
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { Update.printError(Serial); }
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) { Update.printError(Serial); }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (Update.end(true)) { Serial.printf("OTA Update Success: %u bytes\n", upload.totalSize); }
+    else { Update.printError(Serial); }
+    otaInProgress = false;
+  }
+}
+
+// Handle upload completion
+void handleOTAResult() {
+  lastWebRequestTime = millis();
+  if (Update.hasError()) {
+    webServer.send(500, "text/plain", Update.errorString());
+  } else {
+    webServer.send(200, "text/plain", "OK");
+    delay(1000);
+    ESP.restart();
+  }
+}
+
 // Load configuration from preferences (uses defaults from credentials.h if not saved)
 void loadConfig() {
   preferences.begin("weather", true);  // Read-only
@@ -860,11 +1036,13 @@ void startAPMode() {
   webServer.on("/save", HTTP_POST, handleSave);
   webServer.on("/reboot", HTTP_POST, handleReboot);
   webServer.on("/reset", HTTP_POST, handleReset);
+  webServer.on("/ota", HTTP_GET, handleOTA);
+  webServer.on("/update", HTTP_POST, handleOTAResult, handleOTAUpload);
   webServer.onNotFound(handleNotFound);
 
   webServer.begin();
   Serial.println("Web server started");
-  Serial.printf("Connect to WiFi: %s (password: %s)\n", AP_SSID, AP_PASSWORD);
+  Serial.printf("Connect to WiFi: %s (password: %s)\n", AP_SSID, AP_PASSWORD)
   Serial.println("Then open http://192.168.4.1 in your browser");
 }
 
@@ -905,10 +1083,13 @@ void startWebServer() {
   webServer.on("/save", HTTP_POST, handleSave);
   webServer.on("/reboot", HTTP_POST, handleReboot);
   webServer.on("/reset", HTTP_POST, handleReset);
+  webServer.on("/ota", HTTP_GET, handleOTA);
+  webServer.on("/update", HTTP_POST, handleOTAResult, handleOTAUpload);
 
   webServer.begin();
   webServerRunning = true;
   Serial.println("Web server started");
+  Serial.println("OTA Update available at /ota");
 }
 
 // Handle web server requests (call in loop)
