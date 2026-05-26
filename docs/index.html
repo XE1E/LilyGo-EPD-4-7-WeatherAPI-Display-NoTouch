@@ -115,7 +115,6 @@
     // Traducir mensajes de esp-web-tools al español
     const traducciones = {
       'No port selected': 'No se selecciono puerto',
-      'No port selected.': 'No se selecciono puerto.',
       'Failed to initialize': 'Error al inicializar',
       'Failed to connect': 'Error al conectar',
       'Installation failed': 'Instalacion fallida',
@@ -133,69 +132,77 @@
       'Error': 'Error',
       'Select port': 'Seleccionar puerto',
       'Connecting': 'Conectando',
-      'Connected': 'Conectado'
+      'Connected': 'Conectado',
+      'Logs & Console': 'Registros y Consola',
+      'Reset Device': 'Reiniciar Dispositivo',
+      'Back': 'Atras',
+      'Next': 'Siguiente',
+      'Skip': 'Omitir'
     };
 
     function traducirTexto(texto) {
       if (!texto) return texto;
-      let resultado = texto;
+      let resultado = texto.trim();
       for (const [en, es] of Object.entries(traducciones)) {
-        resultado = resultado.replace(new RegExp(en, 'gi'), es);
+        if (resultado === en) return es;
+        resultado = resultado.replace(new RegExp('\\b' + en + '\\b', 'g'), es);
       }
       return resultado;
     }
 
-    function traducirElemento(el) {
-      if (el.childNodes.length === 0 && el.textContent) {
-        const traducido = traducirTexto(el.textContent);
-        if (traducido !== el.textContent) {
-          el.textContent = traducido;
+    function traducirNodo(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const texto = node.textContent;
+        const traducido = traducirTexto(texto);
+        if (traducido !== texto) {
+          node.textContent = traducido;
         }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        // Traducir shadowRoot si existe
+        if (node.shadowRoot) {
+          traducirShadowRoot(node.shadowRoot);
+        }
+        // Traducir hijos
+        node.childNodes.forEach(child => traducirNodo(child));
       }
-      el.childNodes.forEach(child => {
-        if (child.nodeType === Node.TEXT_NODE) {
-          const traducido = traducirTexto(child.textContent);
-          if (traducido !== child.textContent) {
-            child.textContent = traducido;
+    }
+
+    function traducirShadowRoot(shadowRoot) {
+      if (!shadowRoot) return;
+      shadowRoot.querySelectorAll('*').forEach(el => {
+        el.childNodes.forEach(child => {
+          if (child.nodeType === Node.TEXT_NODE) {
+            const texto = child.textContent;
+            const traducido = traducirTexto(texto);
+            if (traducido !== texto) {
+              child.textContent = traducido;
+            }
           }
-        } else if (child.nodeType === Node.ELEMENT_NODE) {
-          traducirElemento(child);
+        });
+        // Recursivamente buscar mas shadowRoots
+        if (el.shadowRoot) {
+          traducirShadowRoot(el.shadowRoot);
         }
       });
     }
 
-    // Observar cambios en el DOM para traducir dialogos de esp-web-tools
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            // Buscar dialogos y elementos de esp-web-tools
-            if (node.tagName && (node.tagName.includes('DIALOG') || node.tagName.includes('ESP') || node.classList?.contains('dialog'))) {
-              setTimeout(() => traducirElemento(node), 50);
-            }
-            // Buscar dentro de shadow DOM
-            if (node.shadowRoot) {
-              traducirElemento(node.shadowRoot);
-            }
-            // Traducir cualquier elemento añadido
-            traducirElemento(node);
-          }
-        });
+    function escanearYTraducir() {
+      // Buscar todos los elementos con shadowRoot
+      document.querySelectorAll('*').forEach(el => {
+        if (el.shadowRoot) {
+          traducirShadowRoot(el.shadowRoot);
+        }
       });
-    });
+    }
 
+    // Escanear periodicamente (esp-web-tools crea dialogos dinamicamente)
+    setInterval(escanearYTraducir, 200);
+
+    // Tambien observar cambios en el DOM
+    const observer = new MutationObserver(() => {
+      setTimeout(escanearYTraducir, 50);
+    });
     observer.observe(document.body, { childList: true, subtree: true });
-
-    // También observar el esp-web-install-button
-    document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.querySelector('esp-web-install-button');
-      if (btn && btn.shadowRoot) {
-        const shadowObserver = new MutationObserver(() => {
-          traducirElemento(btn.shadowRoot);
-        });
-        shadowObserver.observe(btn.shadowRoot, { childList: true, subtree: true, characterData: true });
-      }
-    });
   </script>
 </body>
 </html>
