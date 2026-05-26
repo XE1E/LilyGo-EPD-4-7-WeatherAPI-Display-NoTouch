@@ -1,5 +1,7 @@
 # LilyGo EPD 4.7" WeatherAPI Display (NoTouch)
 
+![Weather Station Display](docs/weather-station.jpg)
+
 ESP32-S3 weather station using the LilyGo T5 4.7" e-paper display. Fetches weather data from **WeatherAPI.com** and displays current conditions plus 3-day forecast.
 
 ## Features
