@@ -64,11 +64,22 @@ Usar navegador Chrome, Edge u Opera y conectar dispositivo via USB.
 
 ### Configuracion Inicial
 
-1. Subir el sketch al dispositivo
-2. El dispositivo crea hotspot WiFi: **WeatherStation-Setup** (password: `weather123`)
-3. Conectarse al hotspot y abrir `http://192.168.4.1`
-4. Configurar credenciales WiFi, API key de WeatherAPI, y ubicacion
-5. Guardar y el dispositivo se reiniciara
+En el primer encendido, el dispositivo detecta automaticamente que no hay configuracion y entra en **modo configuracion inicial** (sin limite de tiempo):
+
+1. Conectarse a red WiFi: `WeatherStation-Setup`
+2. Password: `weather123`
+3. Abrir navegador: `http://192.168.4.1`
+4. **Probar WiFi** - Boton para verificar que la red existe
+5. **Probar API** - Boton para validar tu API key antes de guardar
+6. Ingresar configuracion (API keys, ubicacion, etc.)
+7. Click en Guardar - el dispositivo reinicia automaticamente en 5 segundos
+
+**Modos de configuracion:**
+| Modo | Cuando ocurre | Timeout |
+|------|---------------|---------|
+| Configuracion Inicial | Primer encendido, sin config | Sin limite |
+| Modo Recuperacion | Falla conexion WiFi | 5 minutos |
+| Modo Forzado | `FORCE_AP_MODE=true` | Sin limite |
 
 ### Obtener tu API Key
 
@@ -98,6 +109,15 @@ Usar navegador Chrome, Edge u Opera y conectar dispositivo via USB.
 | Intervalo | Minutos entre actualizaciones | 60 |
 | Idioma | ES, EN, o FR | ES |
 | Unidades | M (Metrico) o I (Imperial) | M |
+
+### Aplicacion de Cambios
+
+| Aplica inmediatamente | Requiere reinicio |
+|-----------------------|-------------------|
+| Idioma | Credenciales WiFi |
+| Unidades (C/F) | API Key |
+| Intervalo de actualizacion | Ubicacion/Coordenadas |
+| Horario de actividad | Zona horaria |
 
 ## Solucion de Problemas
 

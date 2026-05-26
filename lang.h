@@ -109,6 +109,10 @@ const char* TXT_AP_WIFI_FAILED_ARR[] = { "No se pudo conectar a WiFi", "Could no
 const char* TXT_AP_ATTEMPTS_EXHAUSTED_ARR[] = { "Intentos agotados", "Attempts exhausted", "Tentatives epuisees" };
 const char* TXT_AP_PERMANENT_SLEEP_ARR[] = { "Entrando en modo sleep permanente", "Entering permanent sleep mode", "Entree en mode veille permanent" };
 const char* TXT_AP_PRESS_RESET_ARR[] = { "Presione RESET para reiniciar", "Press RESET to restart", "Appuyez sur RESET pour redemarrer" };
+const char* TXT_AP_INITIAL_SETUP_ARR[] = { "CONFIGURACION INICIAL", "INITIAL SETUP", "CONFIGURATION INITIALE" };
+const char* TXT_AP_RECOVERY_MODE_ARR[] = { "MODO RECUPERACION", "RECOVERY MODE", "MODE RECUPERATION" };
+const char* TXT_AP_NO_TIMEOUT_ARR[] = { "Sin limite de tiempo", "No time limit", "Sans limite de temps" };
+const char* TXT_AP_TIMEOUT_INFO_ARR[] = { "Reintento automatico en 5 min", "Auto-retry in 5 min", "Nouvel essai dans 5 min" };
 
 #define TXT_AP_WIFI_CONFIG_MODE String(TXT_AP_WIFI_CONFIG_MODE_ARR[currentLang])
 #define TXT_AP_CONNECT_TO_WIFI String(TXT_AP_CONNECT_TO_WIFI_ARR[currentLang])
@@ -120,6 +124,10 @@ const char* TXT_AP_PRESS_RESET_ARR[] = { "Presione RESET para reiniciar", "Press
 #define TXT_AP_ATTEMPTS_EXHAUSTED String(TXT_AP_ATTEMPTS_EXHAUSTED_ARR[currentLang])
 #define TXT_AP_PERMANENT_SLEEP String(TXT_AP_PERMANENT_SLEEP_ARR[currentLang])
 #define TXT_AP_PRESS_RESET String(TXT_AP_PRESS_RESET_ARR[currentLang])
+#define TXT_AP_INITIAL_SETUP String(TXT_AP_INITIAL_SETUP_ARR[currentLang])
+#define TXT_AP_RECOVERY_MODE String(TXT_AP_RECOVERY_MODE_ARR[currentLang])
+#define TXT_AP_NO_TIMEOUT String(TXT_AP_NO_TIMEOUT_ARR[currentLang])
+#define TXT_AP_TIMEOUT_INFO String(TXT_AP_TIMEOUT_INFO_ARR[currentLang])
 
 // ============== UI LABELS ==============
 const char* TXT_VERSION_ARR[] = { "Version:", "Version:", "Version:" };

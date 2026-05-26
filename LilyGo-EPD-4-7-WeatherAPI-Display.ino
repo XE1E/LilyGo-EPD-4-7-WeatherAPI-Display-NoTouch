@@ -104,9 +104,14 @@ long Delta           = 30; // ESP32 rtc speed compensation, prevents display at 
 bool inAPMode = false;
 const bool FORCE_AP_MODE = false;  // Set to true to force AP mode on next boot
 unsigned long apModeStartTime = 0;
-const unsigned long AP_RETRY_TIMEOUT = 60000;  // 1 minute timeout to retry WiFi
+const unsigned long AP_RETRY_TIMEOUT = 300000;  // 5 minutes timeout to retry WiFi
 const int AP_MAX_RETRIES = 5;  // Max WiFi connection attempts before permanent sleep
 int apRetryCount = 0;
+
+// Helper to check if current AP mode has timeout
+bool apModeHasTimeout() {
+  return currentAPModeType == AP_RECOVERY;
+}
 
 
 //fonts
@@ -324,8 +329,8 @@ void loop() {
   if (inAPMode) {
     handleAPMode();
 
-    // Check if 1 minute has passed to retry WiFi connection
-    if (millis() - apModeStartTime >= AP_RETRY_TIMEOUT) {
+    // Check if timeout has passed to retry WiFi connection (only in recovery mode)
+    if (apModeHasTimeout() && (millis() - apModeStartTime >= AP_RETRY_TIMEOUT)) {
       Serial.println("AP mode timeout - retrying WiFi connection...");
       stopAPMode();
       inAPMode = false;
@@ -380,7 +385,8 @@ void loop() {
         esp_deep_sleep_start();
       }
 
-      // Return to AP mode for another attempt
+      // Return to AP mode (recovery) for another attempt
+      currentAPModeType = AP_RECOVERY;
       inAPMode = true;
       apModeStartTime = millis();
       displayAPModeScreen();
@@ -434,29 +440,48 @@ void displayAPModeScreen() {
   epd_clear();
   memset(framebuffer, 0xFF, EPD_WIDTH * EPD_HEIGHT / 2);
 
+  // Mode-specific title
   setFont(OpenSans24B);
-  drawString(SCREEN_WIDTH / 2, 100, TXT_AP_WIFI_CONFIG_MODE, CENTER);
+  String modeTitle;
+  switch (currentAPModeType) {
+    case AP_INITIAL_SETUP:
+      modeTitle = TXT_AP_INITIAL_SETUP;
+      break;
+    case AP_FORCED:
+      modeTitle = TXT_AP_WIFI_CONFIG_MODE;
+      break;
+    case AP_RECOVERY:
+    default:
+      modeTitle = TXT_AP_RECOVERY_MODE;
+      break;
+  }
+  drawString(SCREEN_WIDTH / 2, 100, modeTitle, CENTER);
 
   setFont(OpenSans12B);
-  drawString(SCREEN_WIDTH / 2, 180, TXT_AP_CONNECT_TO_WIFI, CENTER);
+  drawString(SCREEN_WIDTH / 2, 160, TXT_AP_CONNECT_TO_WIFI, CENTER);
 
   setFont(OpenSans18B);
-  drawString(SCREEN_WIDTH / 2, 220, AP_SSID, CENTER);
+  drawString(SCREEN_WIDTH / 2, 200, AP_SSID, CENTER);
 
   setFont(OpenSans12B);
-  drawString(SCREEN_WIDTH / 2, 270, TXT_AP_PASSWORD + " " + String(AP_PASSWORD), CENTER);
+  drawString(SCREEN_WIDTH / 2, 250, TXT_AP_PASSWORD + " " + String(AP_PASSWORD), CENTER);
 
-  drawString(SCREEN_WIDTH / 2, 330, TXT_AP_OPEN_BROWSER, CENTER);
+  drawString(SCREEN_WIDTH / 2, 310, TXT_AP_OPEN_BROWSER, CENTER);
 
   setFont(OpenSans18B);
-  drawString(SCREEN_WIDTH / 2, 370, "http://192.168.4.1", CENTER);
+  drawString(SCREEN_WIDTH / 2, 350, "http://192.168.4.1", CENTER);
 
   setFont(OpenSans10B);
-  drawString(SCREEN_WIDTH / 2, 450, TXT_AP_DEVICE_RESTART, CENTER);
+  drawString(SCREEN_WIDTH / 2, 420, TXT_AP_DEVICE_RESTART, CENTER);
 
-  // Show retry count if we've had failed attempts
-  if (apRetryCount > 0) {
-    drawString(SCREEN_WIDTH / 2, 490, TXT_AP_ATTEMPTS_REMAINING + " " + String(AP_MAX_RETRIES - apRetryCount), CENTER);
+  // Show timeout info based on mode
+  if (apModeHasTimeout()) {
+    drawString(SCREEN_WIDTH / 2, 460, TXT_AP_TIMEOUT_INFO, CENTER);
+    if (apRetryCount > 0) {
+      drawString(SCREEN_WIDTH / 2, 490, TXT_AP_ATTEMPTS_REMAINING + " " + String(AP_MAX_RETRIES - apRetryCount), CENTER);
+    }
+  } else {
+    drawString(SCREEN_WIDTH / 2, 460, TXT_AP_NO_TIMEOUT, CENTER);
   }
 
   edp_update();
@@ -489,16 +514,30 @@ void setup() {
   // Initialize language based on config
   initLanguage(config.language);
 
-  // Check for forced AP mode (hardcoded flag or stored preference)
-  if (FORCE_AP_MODE || forceAPMode) {
-    Serial.println("Entering AP mode (forced via flag)...");
+  // Check for first boot (no valid config)
+  if (isFirstBoot()) {
+    Serial.println("First boot detected - entering initial setup mode...");
+    currentAPModeType = AP_INITIAL_SETUP;
     inAPMode = true;
-    apRetryCount = 0;  // Reset retry counter
+    apRetryCount = 0;
     apModeStartTime = millis();
     displayAPModeScreen();
     startAPMode();
-    setupArduinoOTA();  // Enable OTA in AP mode
-    return;  // Stay in loop() for AP mode handling
+    setupArduinoOTA();
+    return;
+  }
+
+  // Check for forced AP mode (hardcoded flag or stored preference)
+  if (FORCE_AP_MODE || forceAPMode) {
+    Serial.println("Entering AP mode (forced via flag)...");
+    currentAPModeType = AP_FORCED;
+    inAPMode = true;
+    apRetryCount = 0;
+    apModeStartTime = millis();
+    displayAPModeScreen();
+    startAPMode();
+    setupArduinoOTA();
+    return;
   }
 
   // Try to connect to WiFi
@@ -529,14 +568,15 @@ void setup() {
       }
     }
   } else {
-    // WiFi connection failed - enter AP mode
-    Serial.println("WiFi connection failed! Entering AP mode...");
+    // WiFi connection failed - enter AP mode (recovery)
+    Serial.println("WiFi connection failed! Entering recovery mode...");
+    currentAPModeType = AP_RECOVERY;
     inAPMode = true;
-    apRetryCount = 0;  // Reset retry counter
+    apRetryCount = 0;
     apModeStartTime = millis();
     displayAPModeScreen();
     startAPMode();
-    return;  // Stay in loop() for AP mode handling
+    return;
   }
 
   BeginSleep();

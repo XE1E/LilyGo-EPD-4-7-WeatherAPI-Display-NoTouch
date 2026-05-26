@@ -64,11 +64,22 @@ Utiliser Chrome, Edge ou Opera et connecter l'appareil via USB.
 
 ### Configuration Initiale
 
-1. Televerser le sketch sur l'appareil
-2. L'appareil cree un hotspot WiFi: **WeatherStation-Setup** (mot de passe: `weather123`)
-3. Se connecter au hotspot et ouvrir `http://192.168.4.1`
-4. Configurer les identifiants WiFi, la cle API WeatherAPI, et l'emplacement
-5. Sauvegarder et l'appareil redemarrera
+Au premier demarrage, l'appareil detecte automatiquement l'absence de configuration et entre en **mode configuration initiale** (sans limite de temps):
+
+1. Se connecter au reseau WiFi: `WeatherStation-Setup`
+2. Mot de passe: `weather123`
+3. Ouvrir navigateur: `http://192.168.4.1`
+4. **Tester WiFi** - Bouton pour verifier que le reseau existe
+5. **Tester API** - Bouton pour valider votre cle API avant de sauvegarder
+6. Entrer vos parametres (cles API, emplacement, etc.)
+7. Cliquer Sauvegarder - l'appareil redemarre automatiquement en 5 secondes
+
+**Modes de configuration:**
+| Mode | Quand il se produit | Delai |
+|------|---------------------|-------|
+| Configuration Initiale | Premier demarrage, sans config | Sans limite |
+| Mode Recuperation | Echec connexion WiFi | 5 minutes |
+| Mode Force | `FORCE_AP_MODE=true` | Sans limite |
 
 ### Obtenir votre Cle API
 
@@ -98,6 +109,15 @@ Utiliser Chrome, Edge ou Opera et connecter l'appareil via USB.
 | Intervalle | Minutes entre les mises a jour | 60 |
 | Langue | ES, EN, ou FR | FR |
 | Unites | M (Metrique) ou I (Imperial) | M |
+
+### Application des Parametres
+
+| S'applique immediatement | Necessite redemarrage |
+|--------------------------|----------------------|
+| Langue | Identifiants WiFi |
+| Unites (C/F) | Cle API |
+| Intervalle de mise a jour | Emplacement/Coordonnees |
+| Heures d'activite | Fuseau horaire |
 
 ## Depannage
 
