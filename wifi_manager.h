@@ -265,6 +265,9 @@ const char CONFIG_PAGE[] PROGMEM = R"rawliteral(
       white-space: nowrap;
     }
     .btn-test { background: var(--warning); color: #000; }
+    .btn-eye { background: var(--bg-input); border: 1px solid var(--border); font-size: 1rem; padding: 12px 14px; }
+    .btn-eye:hover { background: var(--border); }
+    .btn-eye.active { background: var(--primary); }
     .test-result {
       font-size: 0.8rem;
       padding: 8px;
@@ -275,6 +278,13 @@ const char CONFIG_PAGE[] PROGMEM = R"rawliteral(
     .test-result.success { display: block; background: rgba(16,185,129,0.2); color: var(--success); }
     .test-result.error { display: block; background: rgba(239,68,68,0.2); color: var(--danger); }
     .test-result.loading { display: block; background: rgba(59,130,246,0.2); color: var(--primary); }
+    .scan-section { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px; background: var(--bg-input); border-radius: 8px; }
+    .btn-scan { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .btn-scan:hover { background: var(--primary-dark); }
+    .btn-scan:disabled { background: var(--border); cursor: not-allowed; }
+    .scan-status { font-size: 0.85rem; color: var(--text-muted); }
+    .scan-status.success { color: var(--success); }
+    .scan-status.error { color: var(--danger); }
   </style>
 </head>
 <body>
@@ -294,20 +304,26 @@ const char CONFIG_PAGE[] PROGMEM = R"rawliteral(
     <form id="configForm" action="/save" method="POST">
       <!-- WiFi Tab -->
       <div id="wifi" class="panel active">
+        <div class="scan-section">
+          <button type="button" class="btn-scan" onclick="scanNetworks()">🔍 Escanear Redes</button>
+          <span id="scan-status" class="scan-status"></span>
+        </div>
+        <datalist id="wifi-networks"></datalist>
         <div class="wifi-network">
           <div class="network-header">Red Principal</div>
           <div class="form-group">
             <label>SSID</label>
             <div class="input-with-btn">
-              <input type="text" name="ssid1" id="ssid1" value="%SSID1%" placeholder="Nombre de red" maxlength="32">
-              <button type="button" class="btn-small btn-test" onclick="testWiFi()">Probar</button>
+              <input type="text" name="ssid1" id="ssid1" value="%SSID1%" placeholder="Nombre de red" maxlength="32" list="wifi-networks">
+              <button type="button" class="btn-small btn-test" onclick="testWiFi(1)">Probar</button>
             </div>
-            <div id="wifi-result" class="test-result"></div>
+            <div id="wifi-result1" class="test-result"></div>
           </div>
           <div class="form-group">
             <label>Contrasena</label>
             <div class="input-with-btn">
-              <input type="password" name="pass1" value="%PASS1%" placeholder="••••••••" maxlength="64">
+              <input type="password" name="pass1" id="pass1" value="%PASS1%" placeholder="••••••••" maxlength="64">
+              <button type="button" class="btn-small btn-eye" onclick="togglePass(1)">👁</button>
             </div>
           </div>
         </div>
@@ -316,11 +332,18 @@ const char CONFIG_PAGE[] PROGMEM = R"rawliteral(
           <div class="network-header">Red Secundaria (opcional)</div>
           <div class="form-group">
             <label>SSID</label>
-            <input type="text" name="ssid2" value="%SSID2%" placeholder="Nombre de red" maxlength="32">
+            <div class="input-with-btn">
+              <input type="text" name="ssid2" id="ssid2" value="%SSID2%" placeholder="Nombre de red" maxlength="32" list="wifi-networks">
+              <button type="button" class="btn-small btn-test" onclick="testWiFi(2)">Probar</button>
+            </div>
+            <div id="wifi-result2" class="test-result"></div>
           </div>
           <div class="form-group">
             <label>Contrasena</label>
-            <input type="password" name="pass2" value="%PASS2%" placeholder="••••••••" maxlength="64">
+            <div class="input-with-btn">
+              <input type="password" name="pass2" id="pass2" value="%PASS2%" placeholder="••••••••" maxlength="64">
+              <button type="button" class="btn-small btn-eye" onclick="togglePass(2)">👁</button>
+            </div>
           </div>
         </div>
 
@@ -328,11 +351,18 @@ const char CONFIG_PAGE[] PROGMEM = R"rawliteral(
           <div class="network-header">Red Terciaria (opcional)</div>
           <div class="form-group">
             <label>SSID</label>
-            <input type="text" name="ssid3" value="%SSID3%" placeholder="Nombre de red" maxlength="32">
+            <div class="input-with-btn">
+              <input type="text" name="ssid3" id="ssid3" value="%SSID3%" placeholder="Nombre de red" maxlength="32" list="wifi-networks">
+              <button type="button" class="btn-small btn-test" onclick="testWiFi(3)">Probar</button>
+            </div>
+            <div id="wifi-result3" class="test-result"></div>
           </div>
           <div class="form-group">
             <label>Contrasena</label>
-            <input type="password" name="pass3" value="%PASS3%" placeholder="••••••••" maxlength="64">
+            <div class="input-with-btn">
+              <input type="password" name="pass3" id="pass3" value="%PASS3%" placeholder="••••••••" maxlength="64">
+              <button type="button" class="btn-small btn-eye" onclick="togglePass(3)">👁</button>
+            </div>
           </div>
         </div>
       </div>
@@ -490,9 +520,9 @@ const char CONFIG_PAGE[] PROGMEM = R"rawliteral(
       document.querySelector(`[onclick="showTab('${tabId}')"]`).classList.add('active');
       document.getElementById(tabId).classList.add('active');
     }
-    function testWiFi() {
-      const ssid = document.getElementById('ssid1').value;
-      const result = document.getElementById('wifi-result');
+    function testWiFi(num) {
+      const ssid = document.getElementById('ssid' + num).value;
+      const result = document.getElementById('wifi-result' + num);
       if (!ssid) { result.className = 'test-result error'; result.textContent = 'Ingresa un SSID'; return; }
       result.className = 'test-result loading'; result.textContent = 'Buscando red...';
       fetch('/test_wifi?ssid=' + encodeURIComponent(ssid))
@@ -502,6 +532,35 @@ const char CONFIG_PAGE[] PROGMEM = R"rawliteral(
           else { result.className = 'test-result error'; result.textContent = 'Red no encontrada'; }
         })
         .catch(() => { result.className = 'test-result error'; result.textContent = 'Error de conexion'; });
+    }
+    function togglePass(num) {
+      const input = document.getElementById('pass' + num);
+      const btn = event.currentTarget;
+      if (input.type === 'password') { input.type = 'text'; btn.classList.add('active'); }
+      else { input.type = 'password'; btn.classList.remove('active'); }
+    }
+    function scanNetworks() {
+      const btn = document.querySelector('.btn-scan');
+      const status = document.getElementById('scan-status');
+      const datalist = document.getElementById('wifi-networks');
+      btn.disabled = true;
+      btn.textContent = 'Escaneando...';
+      status.className = 'scan-status'; status.textContent = '';
+      fetch('/scan_wifi')
+        .then(r => r.json())
+        .then(d => {
+          datalist.innerHTML = '';
+          d.networks.sort((a,b) => b.rssi - a.rssi).forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n.ssid;
+            opt.textContent = n.ssid + ' (' + n.rssi + ' dBm' + (n.secure ? ', 🔒' : '') + ')';
+            datalist.appendChild(opt);
+          });
+          status.className = 'scan-status success';
+          status.textContent = d.networks.length + ' redes encontradas';
+        })
+        .catch(() => { status.className = 'scan-status error'; status.textContent = 'Error al escanear'; })
+        .finally(() => { btn.disabled = false; btn.textContent = '🔍 Escanear Redes'; });
     }
     function testAPI() {
       const key = document.getElementById('apikey').value;
@@ -847,6 +906,24 @@ void handleOTAResult() {
     delay(1000);
     ESP.restart();
   }
+}
+
+// Handle WiFi network scan - returns list of networks
+void handleScanWiFi() {
+  lastWebRequestTime = millis();
+  Serial.println("Scanning WiFi networks...");
+
+  int n = WiFi.scanNetworks();
+  String json = "{\"networks\":[";
+
+  for (int i = 0; i < n; i++) {
+    if (i > 0) json += ",";
+    json += "{\"ssid\":\"" + WiFi.SSID(i) + "\",\"rssi\":" + String(WiFi.RSSI(i)) + ",\"secure\":" + String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN ? "true" : "false") + "}";
+  }
+  json += "]}";
+
+  WiFi.scanDelete();
+  webServer.send(200, "application/json", json);
 }
 
 // Handle WiFi network test
@@ -1279,6 +1356,7 @@ void startAPMode() {
   webServer.on("/reset", HTTP_POST, handleReset);
   webServer.on("/ota", HTTP_GET, handleOTA);
   webServer.on("/update", HTTP_POST, handleOTAResult, handleOTAUpload);
+  webServer.on("/scan_wifi", HTTP_GET, handleScanWiFi);
   webServer.on("/test_wifi", HTTP_GET, handleTestWiFi);
   webServer.on("/test_api", HTTP_GET, handleTestAPI);
   webServer.on("/do_reboot", HTTP_GET, handleDoReboot);
@@ -1329,6 +1407,7 @@ void startWebServer() {
   webServer.on("/reset", HTTP_POST, handleReset);
   webServer.on("/ota", HTTP_GET, handleOTA);
   webServer.on("/update", HTTP_POST, handleOTAResult, handleOTAUpload);
+  webServer.on("/scan_wifi", HTTP_GET, handleScanWiFi);
   webServer.on("/test_wifi", HTTP_GET, handleTestWiFi);
   webServer.on("/test_api", HTTP_GET, handleTestAPI);
   webServer.on("/do_reboot", HTTP_GET, handleDoReboot);

@@ -271,12 +271,12 @@ uint8_t StartWiFi() {
     Serial.printf("Connecting to: %s (signal: %d dBm)\n", selectedSSID, bestRSSI);
     WiFi.begin(selectedSSID, selectedPass);
 
-    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      Serial.printf("STA: Failed!\n");
-      WiFi.disconnect(false);
-      delay(200);  // Reduced from 500ms
+    if (WiFi.waitForConnectResult(15000) != WL_CONNECTED) {
+      Serial.printf("STA: Failed! Retrying...\n");
+      WiFi.disconnect(true);
+      delay(500);
       WiFi.begin(selectedSSID, selectedPass);
-      WiFi.waitForConnectResult();
+      WiFi.waitForConnectResult(15000);
     }
   } else {
     Serial.println("No configured networks found in scan results!");
@@ -284,12 +284,12 @@ uint8_t StartWiFi() {
     if (configNetworkCount > 0) {
       Serial.printf("Trying stored config: %s\n", configNetworks[0].ssid);
       WiFi.begin(configNetworks[0].ssid, configNetworks[0].password);
-      WiFi.waitForConnectResult();
+      WiFi.waitForConnectResult(15000);
     }
     if (WiFi.status() != WL_CONNECTED && wifiNetworkCount > 0) {
       Serial.printf("Trying hardcoded fallback: %s\n", wifiNetworks[0].ssid);
       WiFi.begin(wifiNetworks[0].ssid, wifiNetworks[0].password);
-      WiFi.waitForConnectResult();
+      WiFi.waitForConnectResult(15000);
     }
   }
 
