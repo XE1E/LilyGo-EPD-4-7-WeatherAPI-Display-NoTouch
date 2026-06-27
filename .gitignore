@@ -1,0 +1,6 @@
+# PlatformIO build output (never commit)
+.pio/
+
+# Local PlatformIO config — kept local only.
+# The project's official build path is Arduino IDE / arduino-cli (see CI).
+platformio.ini
