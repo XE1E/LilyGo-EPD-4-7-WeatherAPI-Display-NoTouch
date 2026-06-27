@@ -12,7 +12,11 @@
     .container { max-width: 600px; width: 100%; }
     .card { background: var(--bg-card); border-radius: 16px; padding: 40px; text-align: center; }
     h1 { font-size: 2rem; margin-bottom: 8px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .subtitle { color: var(--text-muted); margin-bottom: 32px; }
+    .subtitle { color: var(--text-muted); margin-bottom: 16px; }
+    .version { display: inline-flex; align-items: center; gap: 8px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); color: var(--text-muted); padding: 6px 14px; border-radius: 999px; font-size: 0.85rem; margin-bottom: 32px; }
+    .version strong { color: var(--text); font-weight: 600; }
+    .version a { color: var(--primary); text-decoration: none; }
+    .version a:hover { text-decoration: underline; }
     .badge { display: inline-block; background: #10b981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; margin-bottom: 16px; }
     .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 32px; text-align: left; }
     .feature { background: rgba(59, 130, 246, 0.1); padding: 16px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2); }
@@ -45,6 +49,11 @@
       <span class="badge">NoTouch Version</span>
       <h1>Weather Station</h1>
       <p class="subtitle">LilyGo EPD 4.7" E-Paper Display</p>
+
+      <p class="version">
+        Firmware <strong id="fw-version">…</strong>
+        <a id="fw-changelog" href="https://github.com/XE1E/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/releases/latest" target="_blank">Novedades</a>
+      </p>
 
       <div class="features">
         <div class="feature">
@@ -110,5 +119,22 @@
       </div>
     </div>
   </div>
+
+  <script>
+    // Show firmware version from the manifest (kept in sync by CI) and
+    // point the changelog link at that version's release.
+    fetch('manifest.json', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (m) {
+        if (!m || !m.version) return;
+        document.getElementById('fw-version').textContent = m.version;
+        var tag = m.version[0] === 'v' ? m.version : 'v' + m.version;
+        document.getElementById('fw-changelog').href =
+          'https://github.com/XE1E/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch/releases/tag/' + tag;
+      })
+      .catch(function () {
+        document.getElementById('fw-version').textContent = 'desconocida';
+      });
+  </script>
 </body>
 </html>

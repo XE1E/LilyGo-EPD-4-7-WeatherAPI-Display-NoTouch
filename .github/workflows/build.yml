@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
@@ -58,7 +58,7 @@ jobs:
           mv ./build/LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch.ino.partitions.bin ./build/partitions.bin 2>/dev/null || true
 
       - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: firmware
           path: |
@@ -78,7 +78,15 @@ jobs:
       - name: Update manifest version
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         run: |
-          VERSION=$(git describe --tags --always)
+          # Derive version from the firmware source of truth (e.g. "2.9 / 4.7in" -> "v2.9").
+          # Falls back to git describe if the pattern isn't found.
+          NUM=$(sed -n 's/.*String version[[:space:]]*=[[:space:]]*"\([0-9][0-9.]*\).*/\1/p' LilyGo-EPD-4-7-WeatherAPI-Display-NoTouch.ino | head -1)
+          if [ -n "$NUM" ]; then
+            VERSION="v$NUM"
+          else
+            VERSION=$(git describe --tags --always)
+          fi
+          echo "manifest version -> $VERSION"
           sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" docs/manifest.json
 
       - name: Commit firmware to docs folder
@@ -87,17 +95,52 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/
-          git diff --staged --quiet || git commit -m "Update firmware binaries [skip ci]"
-          git push
+          if git diff --staged --quiet; then
+            echo "No firmware changes to commit."
+            exit 0
+          fi
+          git commit -m "Update firmware binaries [skip ci]"
+          # Retry push, rebasing onto any concurrent pushes.
+          # On a binary conflict, -X theirs keeps our freshly built artifacts
+          # (during rebase "theirs" = the commit being replayed, i.e. ours).
+          attempt=0
+          max=5
+          until git push; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge "$max" ]; then
+              echo "::error::Push failed after $max attempts."
+              exit 1
+            fi
+            echo "Push rejected; rebasing onto origin/main (attempt $attempt/$max)..."
+            git pull --rebase -X theirs origin main
+          done
+          echo "Firmware binaries pushed."
+
+      - name: Extract changelog for release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Extracting changelog section for version $VERSION"
+          awk -v ver="$VERSION" '
+            index($0, "## [" ver "]")==1 {flag=1; next}
+            flag && index($0, "## [")==1 {exit}
+            flag {print}
+          ' CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "No se encontró una sección en CHANGELOG.md para la versión $VERSION." > release_notes.md
+          fi
+          echo "--- release_notes.md ---"
+          cat release_notes.md
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             ./build/weather-station-notouch.bin
             ./build/bootloader.bin
             ./build/partitions.bin
+          body_path: release_notes.md
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

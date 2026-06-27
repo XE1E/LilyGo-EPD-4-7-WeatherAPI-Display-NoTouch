@@ -56,7 +56,7 @@
 #define SCREEN_HEIGHT  EPD_HEIGHT
 
 //################  VERSION  ##################################################
-String version = "2.8 / 4.7in";  // Programme version - WeatherAPI with OTA
+String version = "2.9 / 4.7in";  // Programme version - WeatherAPI with OTA, see CHANGELOG.md
 //################ VARIABLES ##################################################
 
 enum alignment {LEFT, RIGHT, CENTER};
@@ -455,7 +455,7 @@ void displayAPModeScreen() {
       modeTitle = TXT_AP_RECOVERY_MODE;
       break;
   }
-  drawString(SCREEN_WIDTH / 2, 100, modeTitle, CENTER);
+  drawString(SCREEN_WIDTH / 2, 85, modeTitle, CENTER);
 
   setFont(OpenSans12B);
   drawString(SCREEN_WIDTH / 2, 160, TXT_AP_CONNECT_TO_WIFI, CENTER);
